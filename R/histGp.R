@@ -74,7 +74,7 @@ conjgradFP = function(A,b,x,orders,sigma,weights,max=1000){
 
 
 
-downhillsimplex = function(fc,N,it=1000,tol=1e-10){
+downhillsimplex = function(fc,N,bp=NULL,it=1000,tol=1e-10){
   
   #######
   alpha  = 1 # =1 (Reflexion)
@@ -86,7 +86,18 @@ downhillsimplex = function(fc,N,it=1000,tol=1e-10){
     print('this will not work for 1 parameter only')
   }
   
-  bp = matrix(runif( (N+1)*N,0,5),nrow=N+1,ncol=N )
+  if(is.null(bp)){
+    bp = matrix(runif( (N+1)*N,0,5),nrow=N+1,ncol=N )
+  }else{
+    if(nrow(bp) != N+1){
+      print('solution points wrong dimension! your input will be replaced')
+      bp = matrix(runif( (N+1)*N,0,5),nrow=N+1,ncol=N )
+    }
+    if(ncol(bp)>N){
+      print('solution points dosnt need function value.')
+      bp = bp[,1:N]
+    }
+  }
   
   res=c()
   for(k in 1:(N+1) ){
@@ -141,7 +152,6 @@ downhillsimplex = function(fc,N,it=1000,tol=1e-10){
       next;
     }
     
-    
     if(np < bp[N+1,N+1]){ ##np better
       h = np
     }else{
@@ -161,10 +171,13 @@ downhillsimplex = function(fc,N,it=1000,tol=1e-10){
       bp[k,1:N] = bp[1,1:N] + sigma*(bp[k,1:N] - bp[1,1:N] )
       ##eval
       bp[k,N+1] = fc(bp[k,1:N])
+   #   print('shrink')
+  #    print(bp[k,1:N])
+  #    print(bp[k,N+1])
     }
     
   }
-  cat(c('iterations:',i,'\n') )
+#  cat(c('iterations:',i,'\n') )
   bp
 }
 
@@ -211,10 +224,85 @@ paramMinkern = function(x,y,w){
 }
 
 
+
+
+gpVariance= function( X,orders,weights,lambdas, sigma,x_pred){
+  N= nrow(X)
+
+  ##calc sigma
+  k_dist_fast = c()
+  for(i in 1:nrow(x_pred) ){
+    ##each dim
+    C =0
+    for(d in 1:ncol(x_pred)){
+      ord = orders[[d]]
+      tmp = X[ord,d]
+      idx= which(tmp <x_pred[i,d] ) 
+      if(length(idx)>0){
+        idx = max(idx)
+        A = sum( (weights[d]*tmp[1:idx])^2)
+      }else{
+        A=0
+        idx=0
+      }
+      B = (N-(idx) )*( (weights[d]*x_pred[i,d]) ^2)
+      C = C+ (A+B)
+    }
+    k_dist_fast = c(k_dist_fast ,C)
+  }
+  
+  ###
+  sum2 =  (1/lambdas$values[1]) *(k_dist_fast )
+  K_starStarFast = rowSums(x_pred%*%weights) ### this is only the diagonal
+  var = K_starStarFast -sum2 + sigma
+  
+}
+
+
+gpHistPredict =function(alpha_direct, orders, X,weights, x_pred){
+
+  pred = c()
+  for(i in 1:nrow(x_pred) ){
+    ##each dim
+    C =0
+    for(d in 1:ncol(x_pred)){
+      ord = orders[[d]]#order(X[,d])
+      tmp = X[ord,d]
+      
+      idx= which(tmp <x_pred[i,d]) 
+      if(length(idx)>0){
+        idx = max(idx) 
+        A = alpha_direct[ord][1:idx] %*% tmp[1:idx]
+      }else{
+        A=0
+        idx = 0;
+      }
+      B = sum(alpha_direct[ord][(idx+1):nrow(alpha_direct)]) * x_pred[i,d]
+      C = C+ weights[d]*(A+B)
+    }
+    pred = c(pred,C)
+  }
+  pred
+}
+
+
+
 ####make some hist efficent gp
-gphist=function(X,Y,sigma,minkern,weights, x_pred){
+gphist=function(X,Y,sigma,minkern,weights, x_pred,alpha_prev=NULL){
   N = nrow(X)
   P = ncol(X)
+  
+  if(is.null(alpha_prev) ){
+    alpha_prev = matrix(0,nrow=nrow(Y))
+  }else{
+    if(nrow(alpha_prev)!=nrow(Y)){
+      print('alpha dimension missmatch')
+      alpha_prev = rbind(alpha_prev,matrix(rep(0,nrow(Y)-nrow(alpha_prev) ) ) )
+    #  alpha_prev = rbind(alpha_prev,matrix(rep(alpha_prev[length(alpha_prev)],nrow(Y)-nrow(alpha_prev) ) ) )
+    }
+  }
+  
+  
   cat(c('samples:',N, ' features:',P ,'\n' ) )
   # N = length(X)
   noise = sigma *diag(N)
@@ -267,7 +355,7 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   ##no stuff
   
   ###calc alpha directly 
-  alpha_direct = conjgradFP(X,Y,matrix(0,nrow=nrow(Y)),orders,sigma,weights)  # conjgrad(K,Y,matrix(0,nrow=nrow(Y)) )
+  alpha_direct = conjgradFP(X,Y,alpha_prev,orders,sigma,weights)  # conjgrad(K,Y,matrix(0,nrow=nrow(Y)) )
   
   if(any(abs(alpha_direct-alpha)>1e-6 )){
     print('error alpha missmatch')
@@ -278,7 +366,7 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   predictions = t(k_star)  %*% alpha
   ### find index
   
-  
+  if(F){ ## make this a function
   pred = c()
   for(i in 1:nrow(x_pred) ){
     ##each dim
@@ -300,7 +388,10 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
     }
     pred = c(pred,C)
   }
+  }###end if
   
+  pred = gpHistPredict(alpha_direct, orders, X , weights,x_pred)
+
   if(any(abs(pred - predictions)>1e-9 )) {
     print('error prediction differ')
     stop()
@@ -314,7 +405,6 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   
   V =outer(1:(nrow(x_pred)), 1:nrow(x_pred), FUN =Vectorize( function(i,j) minkern(x_pred[i,],x_pred[j,],weights) ) ) - t(v)%*%v
   
-
   mu1 = N*sigma+   sum(X%*%weights) #sum(diag(K)) #### 
   if(abs(sum(diag(K)) -mu1)>1e-9){
     print('error calculating mu1')
@@ -338,7 +428,6 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
     }
     
   }
-  
  
   t_bar = (beta*mu1 - mu2) /(beta*N - mu1)
   t_bar2 = t_bar^(2)
@@ -358,19 +447,19 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   
   ##calc sigma
   sum1 = 0
-  vecsum= 0
-  #  if(length(lambdas$values)>1){
-  #    for(i in length(lambdas$values):2){
-  #      sum1 =sum1 +(1/lambdas$values[i]) * sum( lambdas$vectors[,i]^2)
-  #      vecsum = vecsum +  sum( lambdas$vectors[,i]^2)
-  #    }
-  #  }
+#  vecsum= 0
+ #   if(length(lambdas$values)>1){
+#      for(i in length(lambdas$values):2){
+#        sum1 =sum1 +(1/lambdas$values[i]) * ( X%*%weights)
+#        vecsum = vecsum +  X%*%weights
+#      }
+#    }
   
   k_star2 = k_star^2# %*% K
   k_dist = sum(k_star2) 
   ## cal k_dist
   
-  k_dist_fast = 0
+  k_dist_fast = c()
   for(i in 1:nrow(x_pred) ){
     ##each dim
     C =0
@@ -388,7 +477,7 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
       B = (N-(idx) )*( (weights[d]*x_pred[i,d]) ^2)
       C = C+ (A+B)
     }
-    k_dist_fast = k_dist_fast +C
+    k_dist_fast = c(k_dist_fast ,C)
   }
   
   if(k_dist_fast> k_dist){
@@ -397,12 +486,28 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   }
   
   ###
-  sum2 =  (1/lambdas$values[1]) *(k_dist  - vecsum)
-  
-  K_starStarFast = rowSums(x_pred) ### this is only the diagonal
+  sum2 =  (1/lambdas$values[1]) *(k_dist_fast)
+  K_starStarFast = rowSums(x_pred%*%weights) ### this is only the diagonal
+  if(any(K_starStarFast!=diag(K_starStar))){
+    print('kstar missmatch')
+    stop()
+  }
+  ###
   var = K_starStarFast - sum1 -sum2 + sigma
+ 
+  var2 = gpVariance(X,orders,weights,lambdas, sigma,x_pred)
+  if(any(var!=var2) ){
+    print('var should be equal')
+    stop()
+  }
+ 
   
+  ####real var
+  #realVar = K_starStar - t(k_star) %*%K_inv %*%k_star
   
+  #####
+  
+   
  # logmarginal  = -0.5*t(Y) %*%alpha - sum(log(diag(L))) #- nrow(X)/2*log(2*pi)
   logmarginal  = 0.5*t(Y) %*%alpha + sum(log(diag(L))) #- nrow(X)/2*log(2*pi)
   
@@ -414,11 +519,31 @@ gphist=function(X,Y,sigma,minkern,weights, x_pred){
   ##get log det bound
   
   ##optimze ?
- 
-  list('predictions'=pred,'var'=var,'logmarginal'=approxmarginal)
+  list('predictions'=pred,'var'=var,'logmarginal'=approxmarginal,'orders'=orders,'alpha'=alpha_direct,'weights'=weights,'lambdas'=lambdas,'sigma'=sigma)
 }
 
-
+gpHistUpdata = function(X,Y,X_old,Y_old,gpList){
+  ###find entries for new values
+  for(d in 1:ncol(X)){
+    for(i in 1:nrow(X)){
+       idx = which(X[i,d]> X_old[gpList$orders[[d]],d] )  
+       if(length(idx)>0){ ##found
+         idx = max(idx) +1
+         if(idx>nrow(X)){
+           gpList$orders[[d]] = c(gpList$orders[[d]],idx)  
+         }else{
+           incx = which(gpList$orders[[d]]>=idx ) 
+           gpList$orders[[incx]] =  gpList$orders[[incx]] +1
+           gpList$orders[[d]] = c(gpList$orders[[d]],idx)  
+         }
+       }else{ ##is first
+         gpList$orders[[d]] = gpList$orders[[d]] +1
+         gpList$orders[[d]] = c(gpList$orders[[d]],1)
+       }
+    }
+  }
+  
+}
 
 
 ####ONLY FOR KERNEL
@@ -461,6 +586,7 @@ mapfc = function(p){
     #stop()
   }  
   X= matrix(c(1:10))
+  set.seed(12345)
   Y = matrix(c(X^2*0.4+3+rnorm(10,0,0.01) ) )
   #gpist(X,Y,sigma,minkern,weights, x_pred)
   
@@ -485,7 +611,8 @@ mapfc2 = function(p){
   }  
   X= matrix(c(1:10))
   X = cbind(X,c(10:1))
-  Y = matrix(c(X[2]+X[1]^2*0.4+3+rnorm(10,0,0.1) ) )
+  set.seed(12345)
+  Y = matrix(c(X[,2]+X[,1]^2*0.4+3+rnorm(nrow(X),0,0.1) ) )
   #gpist(X,Y,sigma,minkern,weights, x_pred)
   x_pred = matrix(c(1:5))
   x_pred = cbind(x_pred, matrix(c(1:5) ) )
@@ -499,3 +626,81 @@ mapfc2 = function(p){
 resmat = downhillsimplex(mapfc2,3,it = 100,tol=0.01)
 
 res =  optim(c(2,2,1), mapfc2, method = c("Nelder-Mead") )
+
+X1 = matrix(X[1:10,],ncol=2)
+Y1 = matrix(Y[1:10])
+
+sigma = resmat[1,1]
+weights = resmat[1,2:3]
+
+gpres = gphist(X,Y,sigma,paramMinkern,weights, x_pred,alpha_prev=NULL);
+  
+X=rbind(X,c(12,13))
+Y = rbind(Y,c(13+12^2*0.4+3+rnorm(1,0,0.1) ) )
+
+gpres_full = gphist(X,Y,sigma,paramMinkern,weights, x_pred,alpha_prev=NULL);
+
+gpres_part = gphist(X,Y,sigma,paramMinkern,weights, x_pred,alpha_prev=gpres$alpha);
+
+###
+y_max = max(Y)
+kappa = 2.576
+eps = 0.0
+acq = "ucb"
+####
+
+
+Utility <- function(x_vec, X,GP, acq = "ucb", y_max, kappa, eps) {
+  # Gaussian Process Prediction
+  #GP_Pred <- gpHistPredict(GP$alpha, GP$orders, X,GP$weights ,x_vec)#GPfit::predict.GP(object = GP, xnew = matrix(x_vec, nrow = 1))
+  testpoint = matrix(x_vec,nrow=1)
+  
+  GP_Mean <-gpHistPredict(GP$alpha, GP$orders, X,GP$weights ,testpoint ) # GP_Pred$Y_hat
+  GP_MSE <- gpVariance( X,GP$orders,GP$weights,GP$lambdas, GP$sigma,testpoint)#GP_Pred$MSE %>% pmax(., 1e-9)
+  print(GP_Mean)
+  print(GP_MSE)
+  # Utility Function Type
+  if (acq == "ucb") {
+    Utility <- GP_Mean + kappa * sqrt(GP_MSE)
+  } else if (acq == "ei") {
+    z <- (GP_Mean - y_max - eps) / sqrt(GP_MSE)
+    Utility <- (GP_Mean - y_max - eps) * pnorm(z) + sqrt(GP_MSE) * dnorm(z)
+  } else if (acq == "poi") {
+    z <- (GP_Mean - y_max - eps) / sqrt(GP_MSE)
+    Utility <- pnorm(z)
+  }
+  return(-Utility)
+}
+###try to find next value...
+Utility_Max <- function(ndim,npoints, X,GP, acq = "ucb", y_max, kappa, eps) {
+  # Try Different Initial Values
+  ### ndim = ncol(X)
+  
+  testmat <- matrix( runif(ndim*npoints , 0 ,1) ,nrow=npoints, ncol=ndim )
+    #Matrix_runif(100, #  lower = rep(0, length(DT_bounds[, Lower])),
+                          #  upper = rep(1, length(DT_bounds[, Upper])))
+  
+  # Negative Utility Function Minimization
+  #Mat_optim <- foreach(i = 1:nrow(testmat), .combine = "rbind") %do% {
+  ##prepare set matrix
+  remat = matrix(0,nrow=npoints,ncol=ndim+1)
+  for(i in 1::nrow(testmat)){
+    optim_result <- optim(par = testmat[i,] ,
+                          fn = Utility,
+                          X= X, GP = GP, acq = acq, y_max = y_max, kappa = kappa, eps = eps,
+                          method = "L-BFGS-B",
+                          lower = rep(0,ndim ),
+                          upper = rep(1,ndim ),
+                          control = list(maxit = 100,factr = 5e11))
+    remat[i,]=  c(optim_result$par, optim_result$value)
+  }
+    
+
+  #} %>%
+  #  data.table(.) %>%
+  #  setnames(., old = names(.), new = c(DT_bounds[, Parameter], "Negetive_Utility"))
+  # Return Best set of Parameters
+  #argmax <- as.numeric(Mat_optim[which.min(Negetive_Utility), DT_bounds[, Parameter], with = FALSE])
+#  return(argmax)
+}
+
