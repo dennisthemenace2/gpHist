@@ -1,11 +1,11 @@
 
 
-
 rm(list = ls())
 
 options(error = recover)
 options(warnings = recover)
 
+require(MASS)
 
 fastMultiplyOne=function(X,Y){
   res = matrix(0,nrow=nrow(X),ncol=1)
@@ -972,7 +972,7 @@ fc = function(p){
 
 res=optim(c(10,5),fc)
 resmat = downhillsimplex(fc,2)
-res =optimizeMe(fc,npoints=20,ndim=2,lower=0,upper=100,0.0001,10,20,1)
+res =optimizeMe(fc,npoints=20,ndim=2,lower=0,upper=10,0.0001,10,20,1)
 
 X= res$X
 Y= res$Y
@@ -980,6 +980,8 @@ GP=res$GP
 resmat = res$resmat
 px = resmat[1,4:5]
 X_trans = gx(X,px)
+upper = 100
+lower = 0
 
 PLOT=TRUE
 library(rgl)
@@ -1200,3 +1202,193 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
   list('X'=X,'Y'=Y,'Xpos'=xminpos,'Ymin'=Y[yminpos],'GP'=GP,'resmat'=resmat)
 }
 
+
+gs = function(V){
+  n = nrow(V);
+  k = ncol(V);
+  U = matrix(0,nrow=n,ncol=k);
+  
+  U[,1] = V[,1]/sqrt( t(V[,1])%*%V[,1]);
+  for(i in 2:k ){
+     U[,i] = V[,i];
+     for(j in 1:(i-1) ){
+       U[,i] = U[,i] - ( t(U[,i])%*%U[,j] ) %*% U[,j];
+     }
+    U[,i] = U[,i]/sqrt(t(U[,i])%*% U[,i]);
+  }
+  U
+}
+##qr decompostion gramm schmidt
+qrgs= function(A){
+  t(gs(A)) %*%A
+}
+####
+
+
+lanczos= function(A,b){
+  
+  v_prev = matrix(0,nrow=nrow(A), ncol=1)
+  v= b /as.numeric(sqrt(t(b)%*%b) )
+  
+  beta = matrix(0,nrow=1, ncol=nrow(A))
+  alpha = matrix(0,nrow=1, ncol=nrow(A))
+  
+  for(i in 1:(nrow(A)-1 ) ){
+    w = A%*%v
+    alpha[,i] =t(w)%*%v
+    w = w-alpha[,i]*v - beta[,i]*v_prev
+    v_prev = v
+    beta[,i+1]= sqrt(t(w)%*%w)
+    v=w/beta[,i+1]
+  }
+  
+  w= A%*%v
+  alpha[,nrow(A)] =t(w)%*%v
+  
+ # TT= diag(as.numeric(alpha) )
+#  for(i in 2:ncol(beta)){
+#    TT[i,i-1] = beta[,i]
+#    TT[i-1,i] = beta[,i]
+#  }
+  
+#  TT
+  list('alpha'=alpha,'beta'=beta)
+}
+
+
+### compute tridiac eigenvalues
+eigenL=function(alpha,beta){
+  N = length(alpha)
+  val = rep(0,N)
+  for(i in 1:N){
+    val[i]  = alpha[i]+ 2*sqrt(2*beta[i])*cos( (i*pi)/(N+1)  ) 
+  }
+  val 
+}
+
+## 
+getTriEigen=function(alpha,beta){
+#  if(length(alpha)>length(beta)){
+#    beta = c(beta,beta[length(beta)] )
+#  }
+  sturm = function(alpha,beta,lambda){
+    #n = nrow(M)
+    #r = ncol(M)
+    n = length(alpha)
+   
+    val = rep(1,n+1)
+    
+    val[2] = lambda- alpha[1] #alpha[1,1]
+    for(i in 2:n){
+      val[i+1] = (lambda- alpha[i])*val[i] - beta[i-1]^2*val[i-1]
+    }
+   
+    val[2:(n+1)] 
+  }
+
+##estimate bound
+
+  bmin = Inf
+  bmax = -Inf
+
+  for(i in 1:length(alpha)){
+    #g = sum(abs(M[i,]))- M[i,i]
+    if(i == 1){
+      g = abs(beta[i])
+    }else if(i == length(alpha)){
+      g = abs(beta[i-1])
+    }else{
+      g =  abs(beta[i-1])+abs(beta[i])
+    }
+  
+    mi = alpha[i] - g
+    ma = alpha[i] + g
+    if(mi<bmin){
+      bmin = mi
+    }
+    if(ma>bmax){
+      bmax = ma
+    }
+  }
+
+  tval = c(floor(bmin) :ceiling(bmax) )
+
+  
+  res= matrix(0,nrow=length(tval),ncol=nrow(M))
+  k = 0
+  for(i in tval){
+    k= k+1
+    val =sturm(alpha,beta,i)
+    res[k,] = val
+  }
+
+  calcChanges = function(res){
+    changes =sign(res)
+    changes=cbind(rep(1,nrow(res)),changes)
+    changes[changes==-1] =0
+    int = changes[,2:ncol(changes)] - changes[,1:(ncol(changes)-1) ]
+    if(nrow(res)>1){
+      ck = rowSums(abs(int))
+    }else{
+      ck = sum(abs(int))  
+    }
+    ck
+  }
+  
+  changes = calcChanges(res)
+  
+  res = cbind(tval,res)
+  
+  eigenvalues = c()
+  ##find eigen values now
+  for(i in 1:(nrow(res)-1) ){
+    dif = abs(changes[i]-changes[i+1])
+    if(dif >0){
+      cat(c('found',dif,'eigenvalues in interval:',tval[i],'-',tval[i+1] ,'\n') )
+      ##for each eigenvalue found
+      changeLow =changes[i]
+      changeHigh =changes[i+1]
+      for( e in 1:dif ){
+        ##half interval...
+        lb =tval[i]
+        ub = tval[i+1]
+        
+        for( w in 1:20){
+          ns = (lb+ub)/2
+          val =sturm(alpha,beta,ns)
+          tc = calcChanges(matrix(val,nrow=1) )
+          if(tc==changeLow){ ##set lower bound
+            #res[i,1]= ns
+            lb= ns
+          }else if(tc==changeHigh){
+            #res[i+1,1]= ns
+            ub= ns
+          }else{
+          #  print('help with bound !') ##most prpably 2 eigenvalues in this bound
+            ##we set upper boudn and hope for the best
+            ub= ns
+            ##and we set the next iteration lower bound and hope for the best
+            tval[i] = ns
+            changeHigh = tc
+           # print('ss')
+           # stop()
+          }
+          cat(c('eigenvalues in interval:',lb,'-',ub ,'\n') )
+          if(abs(lb-ub)<0.001){
+            break
+          }
+        }
+        ##apend eigenvalue....
+        eigenvalues= c(eigenvalues,(lb+ub)/2 )
+        changeLow = changeHigh
+        changeHigh = changeHigh-1
+        
+      }
+    }
+    
+    
+  }
+  eigenvalues
+}
+
+res = getTriEigen(c(2,2,2),c(-1,-1))
