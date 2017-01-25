@@ -1,0 +1,6 @@
+useDynLib(gpHist)
+export(gpHist)
+export(gpHistPredict)
+export(gpHistVariance)
+export(downhillsimplex)
+export(estimateHyperParameters)
