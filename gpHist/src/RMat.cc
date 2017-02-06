@@ -87,10 +87,10 @@ RMat::operator= (const RMat &vRhs)
 RMat&
 RMat::operator= (double vValue)
 {
-  //  for (int i=0; i<mNumRows*mNumCols; i++){
-//        mValues[i] = vValue;
-//    }
-    memset( mValues,vValue,mNumCols*mNumRows*sizeof(double) );
+    for (int i=0; i<mNumRows*mNumCols; i++){
+        mValues[i] = vValue;
+    }
+    //memset( mValues,vValue,mNumCols*mNumRows*sizeof(double) );
     return (*this);
 }
 

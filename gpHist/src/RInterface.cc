@@ -45,10 +45,12 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
 //  }
   result += sigma*Y ;
   
-}
-*/
+}*/
+
 
 void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
+  //std::cout<<"fastMultiply start"<<std::endl;
+  
   
   //  RMat prev(Y.NumRows ,1);
   result.SetZero();
@@ -95,9 +97,10 @@ void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
     
   }
   result += sigma*Y ;
+  
+  //std::cout<<"fastMultiply end"<<std::endl;
+  
 }
-
-
 
 bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned int max_iterations=1000 ) {
 
@@ -105,10 +108,12 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
 
   fastMultiply(A,x,res,orders,sigma); //A%*%x;
 
+//  std::cout<<"conjgradFP first "<<max_iterations <<std::endl;
   RMat r= b-res;// 
   RMat p=r;
   
   double rsold=r.SquareSum();//t(r)%*%r 
+  double rsnew ;
     
   for (unsigned int i=1;i<=max_iterations;++i){
     fastMultiply(A,p,res,orders,sigma);// res =  A%*%p;
@@ -129,8 +134,8 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
     }
     
     
-    double rsnew= r.SquareSum();//t(r)%*%r;
-    if(sqrt(rsnew) <1e-12){
+    rsnew= r.SquareSum();//t(r)%*%r;
+    if(sqrt(rsnew) <1e-10){
 //#  cat(c('break:', i, ' err:',sum(sqrt(rsnew)),'\n') )
       return true;
     }
@@ -140,13 +145,14 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
     rsold=rsnew;
   }
     
+  //std::cout<<"DIST:"<<  sqrt(rsnew)<<std::endl;
   return false;
 }
 // power method
 double getEigen( RMat& A,RMat &b,RMat& orders,double sigma){
   double last = 0;
   RMat res( b.NumRows(),1 );
-  
+
   for(unsigned int i=0;i<10000;++i){ // or give it a max iterations parameter
     fastMultiply(A,b,res,orders,sigma); //A%*%b;
     double norm = sqrt(res.SquareSum()) ;
@@ -357,17 +363,25 @@ void CppHist(double *result,
     RMat  vMatOrders(orders,numRows,numCols);
     
    
-   if(!conjgradFP(vMatX, vMatY ,vMatAlphas,vMatOrders, sigma ) ){
-     Rprintf("conjgradFP not converged\n");
-   }
+  // if(!conjgradFP(vMatX, vMatY ,vMatAlphas,vMatOrders, sigma ) ){
+  //   Rprintf("conjgradFP not converged\n");
+  // }
+   conjgradFP(vMatX, vMatY ,vMatAlphas,vMatOrders, sigma );
    //vMatAlphas.Print();
+   //std::cout<<"after conjgradFP"  <<std::endl;
    
    double mu1 = numRows*sigma + vMatX.Sum();
+   //std::cout<<"set mu1"  <<std::endl;
    // nedd to get larges eigenvalue
    RMat eigenVec(numRows,1);
-   eigenVec = vMatY;//1.0/(*numRows);
+   eigenVec = 1.0/(double)numRows;
+  // eigenVec.Print("eigenvec");
+   //eigenVec = 1.0;
    
+  // std::cout<<"calc eigen"  <<std::endl;
    double beta = getEigen(vMatX,eigenVec,vMatOrders, sigma);
+   
+  // std::cout<<"eigen calced"<<beta  <<std::endl;
    *lambda = beta;
 //   std::cout<<beta<<std::endl;
  //  std::cout<<" "<<std::endl;
@@ -398,7 +412,7 @@ void CppHist(double *result,
    
   // std::cout<<"logdet:"<<logdetM<<std::endl;
    
-   *logmarginal= 0.5*vMatAlphas.ScalarProd(vMatY)+ logdetM/2 + (numRows/2.0)*log(2.0*PI);
+   *logmarginal= 0.5*vMatAlphas.ScalarProd(vMatY)+ logdetM/2.0 + (numRows/2.0)*log(2.0*PI);
   // std::cout<<"   vMatY.ScalarProd( vMatAlphas ) :"<<   vMatY.ScalarProd( vMatAlphas ) <<std::endl;
    //std::cout<<"    numRows/2*log(2*PI):"<<   (numRows/2.0)*log(2.0*PI)<<std::endl;
    
@@ -406,20 +420,6 @@ void CppHist(double *result,
 
 
 }
-
-void Cmtest(double *result,
-            int *numRows, int *numCols,int *numRows2 ,int *numCols2,
-            double *mat1, double *mat2,double *sigma , double *orders)
-{
-  RMat  vMatX(mat1,*numRows,*numCols);
-  RMat  vMatY(mat2,*numRows2,*numCols2);
-  RMat  vMatAlphas(result,*numRows,1);
-  RMat  vMatOrders(orders,*numRows,*numCols);
-  
-  fastMultiply(vMatX, vMatY ,vMatAlphas,vMatOrders, *sigma );
-  
-}
-
 
 int compare ( const void *pa, const void *pb ){
   const double *a = (double*) pa;
@@ -449,6 +449,36 @@ void chkBound(RMat& params,double* lower, double* upper){
   }
   
 }
+// do just all stuff in c
+double dummy2(RMat& X,RMat& Y,RMat& params,RMat &orders, RMat &result,RMat& X_trans){
+  
+  double lambda;
+  double logmarginal;
+
+  // coopy X to Xtrans.
+  
+  //memcpy(X_trans.getValuesPtr(),X.getValuesPtr(),sizeof(double)*X.NumRows()*X.NumCols() );
+  double *Xp=X.getValuesPtr();
+  double *Xtransp=X_trans.getValuesPtr();
+  
+  for(unsigned int i =0;i<X.NumRows()*X.NumCols();++i ){
+    Xtransp[i] = Xp[i] + 100; // shift for n 
+  }
+  
+  // transform data for me
+  for(int i=1;i<=X.NumCols();++i){
+    RMat point(X_trans.getColPtr(i),X_trans.NumRows(),1);
+    point *=  params(i+1,1);
+  }
+    
+//  void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda){
+    //  std::cout<<"CgpHist"  <<std::endl;
+  CppHist(result.getValuesPtr(),X.NumRows(),X.NumCols(),Y.NumRows(),Y.NumCols(),X_trans.getValuesPtr(),Y.getValuesPtr(),params(1,1),orders.getValuesPtr(),&logmarginal,&lambda);
+  
+  return(logmarginal);  
+  
+}
+
 
 double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
  
@@ -473,14 +503,17 @@ double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
 
 extern "C" {
     void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda){
+    //  std::cout<<"CgpHist"  <<std::endl;
       CppHist(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*sigma,orders,logmarginal,lambda);
     }
 
   void CgpHistPredict(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double *orders){
+  //  std::cout<<"CgpHistPredict"  <<std::endl;
     CppHistPredict(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,mat3,orders);
   }
   
   void CgpHistVariance(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double*lambda,double* sigma, double *orders){
+//    std::cout<<"CgpHistVariance"  <<std::endl;
     CppHistVariance(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,mat3,*lambda,*sigma,orders);
   }
 
@@ -566,7 +599,7 @@ extern "C" {
           //m = vMatbp.RowSums();
           m /= (*nParams); // mean
           
-          m.Print("\n\n\nm");
+      //    m.Print("\n\n\nm");
           
           idx =(int) vMatValues(2,Np1);
        //   m.Print("mean");
@@ -575,7 +608,7 @@ extern "C" {
           RMat point(vMatbp.getColPtr(idx),*nParams ,1); // get vector of params
        //   point.Print("point...");
           r =(1.+(*alpha)) *m - point*(*alpha) ;//bp[N+1,1:N]
-          r.Print("r");
+       //   r.Print("r");
           chkBound(r, lower, upper);
           
       //    std::cout<<"after chk bound r"<<std::endl;  
@@ -585,8 +618,8 @@ extern "C" {
             
            if(fcRes<vMatValues(1,1)){ //##better
               e =(1+(*gamma)) *m -point* (*gamma);
-             std::cout<<"after calc e"<<std::endl;  
-             e.Print("e\n");
+          //   std::cout<<"after calc e"<<std::endl;  
+         //    e.Print("e\n");
               chkBound(e,lower,upper );
                
                double fcRes2 = dummy(e,function_call,environment, input);;
@@ -598,8 +631,8 @@ extern "C" {
                  point = r;
                  vMatValues(1,Np1) = fcRes ;
                }
-               vMatValues.Print("vMatValues\n");
-               vMatbp.Print("vMatbp\n");
+        //       vMatValues.Print("vMatValues\n");
+         //      vMatbp.Print("vMatbp\n");
                
                continue;
            }
@@ -612,34 +645,34 @@ extern "C" {
              point = r;
              vMatValues(1,Np1) = fcRes ;
              
-             vMatValues.Print("set r vMatValues\n");
-             vMatbp.Print("vMatbp\n");
+       //      vMatValues.Print("set r vMatValues\n");
+       //      vMatbp.Print("vMatbp\n");
              
              continue;
            }
-           std::cout<<"fc res"<< fcRes<<std::endl;
-           std::cout<<"vMatValues(1,Np1) res"<< vMatValues(1,Np1)<<std::endl;
+    //       std::cout<<"fc res"<< fcRes<<std::endl;
+     //      std::cout<<"vMatValues(1,Np1) res"<< vMatValues(1,Np1)<<std::endl;
            
            
            if(vMatValues(1,Np1)<fcRes){ 
              e = (*beta) *m+(1.- *beta)*point;
-             std::cout<<"n+1 is better"<<std::endl;
+      //       std::cout<<"n+1 is better"<<std::endl;
            }else{
              e = (*beta) *m+(1.- *beta)*r;
-             std::cout<<"fc is better"<<std::endl;
-             r.Print("my r");
+      //       std::cout<<"fc is better"<<std::endl;
+        //     r.Print("my r");
            }
            
-           e.Print("cp before ckbound");
+        //   e.Print("cp before ckbound");
            
            chkBound(e,lower,upper );
            fcRes = dummy(e,function_call,environment, input);
-           e.Print("get cp query");
+        //  e.Print("get cp query");
            if(fcRes< vMatValues(1,Np1)){
                point = e;
                vMatValues(1,Np1)= fcRes ;
-               vMatValues.Print("vMatValues accteo cp");
-               vMatbp.Print("vMatbp");
+           //    vMatValues.Print("vMatValues accteo cp");
+           //    vMatbp.Print("vMatbp");
                
                continue;
            }
@@ -661,8 +694,8 @@ extern "C" {
              vMatValues(1,k)= fcRes;
            }
            
-           vMatValues.Print("vMatValues last");
-           vMatbp.Print("vMatbp");
+        //   vMatValues.Print("vMatValues last");
+       //    vMatbp.Print("vMatbp");
            
 
         }
@@ -673,13 +706,176 @@ extern "C" {
     //Cdownhillsimplex SEXP
    // std::cout<<"OK"<<std::endl;
   }
-  
 
-     
-       
-  void CgpfMult(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders)
-  {
-    Cmtest(result,numRows,numCols,numRows2,numCols2,mat1,mat2,sigma,orders);  
+  
+  ////////// downhill all in c will be deleted....
+void CdownhillsimplexIN(int* nParams,double* bp,double* lower,double* upper,int *resPtr, double *alpha,double *gamma,double *beta,double *sigma,unsigned int *it,double *tol, double *X, double *Y,double *orders,double *nrow, double *ncol){
+
+
+  //double dummy2(RMat& X,RMat& Y,RMat& params,RMat &orders, RMat &result,RMat& X_trans){
+  RMat Xmat(X,*nrow,*ncol);
+  RMat Xtransmat(*nrow,*ncol);
+  RMat Ymat(Y,*nrow,1);
+  RMat result(*nrow,1);
+  RMat ordersmat(orders,*nrow,*ncol);
+  
+  
+  /////////
+  
+  int Np1 = (*nParams)+1;
+  RMat  vMatbp(bp,*nParams,Np1); //parameters but make downwords
+  RMat  vMatValues( 2,Np1); //functiosn values..next row idx
+  
+  RMat  m(*nParams ,1); //mean over params
+  RMat  r(*nParams ,1); //new parameters
+  RMat  e(*nParams ,1); //new parameters
+  
+  //  RMat  vMatIdx( (*nParams)+1,1); //functiosn values..
+  
+  double fcRes;
+  for(int i=1;i<=Np1;++i){
+    RMat point(vMatbp.getColPtr(i),*nParams ,1); // get vector of params
+    fcRes = dummy2(Xmat,Ymat,point,ordersmat, result,Xtransmat);
+    vMatValues(1,i) = fcRes;
+    //res =c(res, fc(bp[k,]) )
   }
   
+  for(unsigned i=1;i<=vMatValues.NumCols();++i ){ // set idx...
+    vMatValues(2,i)=i;
+  }
+  
+  
+  //vMatValues.Print("values");
+  // std::cout<<"iterations:"<<*it<<std::endl;
+  
+  for(unsigned int i=0;i<*it;++i){
+    // sort my function valiues
+    
+    sortIdx(vMatValues);
+    // check convergenc
+    // std::cout<<"convergence value"<< fabs(vMatValues(1,1)-vMatValues(1,Np1)) <<std::endl;
+    
+    
+    if(fabs( vMatValues(1,1) -vMatValues(1,Np1) )  < *tol){
+      //  cat(c('converged after:',i,' iterations. value:', abs(bp[1,N+1]-bp[N+1,N+1]) ,'\n' ) )
+      std::cout<<"converged after:"<<i<<" iterations."<< fabs(vMatValues(1,1)-vMatValues(1,Np1))<<std::endl;
+      break;
+    }
+    
+    //  vMatbp.Print("vMat");
+    //have to do stuff because not the last solution...
+    int idx ;
+    m.SetZero();
+    for(int x=1;x<vMatbp.NumCols();++x){
+      idx =  (int) vMatValues(2,x);
+      RMat setup(vMatbp.getColPtr(idx), (*nParams) ,1);
+      m += setup;
+    }
+    //m = vMatbp.RowSums();
+    m /= (*nParams); // mean
+    
+    //    m.Print("\n\n\nm");
+    
+    idx =(int) vMatValues(2,Np1);
+    //   m.Print("mean");
+    // std::cout<<"calculated mean"<<std::endl;  
+    
+    RMat point(vMatbp.getColPtr(idx),*nParams ,1); // get vector of params
+    //   point.Print("point...");
+    r =(1.+(*alpha)) *m - point*(*alpha) ;//bp[N+1,1:N]
+    //   r.Print("r");
+    chkBound(r, lower, upper);
+    
+    //    std::cout<<"after chk bound r"<<std::endl;  
+    //    r.Print("R\n");
+    //np = fc(r) //querry point
+    fcRes =dummy2(Xmat,Ymat,r,ordersmat, result,Xtransmat);
+    
+    if(fcRes<vMatValues(1,1)){ //##better
+      e =(1+(*gamma)) *m -point* (*gamma);
+      //   std::cout<<"after calc e"<<std::endl;  
+      //    e.Print("e\n");
+      chkBound(e,lower,upper );
+      
+      double fcRes2 = dummy2(Xmat,Ymat,e,ordersmat, result,Xtransmat);
+      
+      if(fcRes2<fcRes){ //e better
+        point = e;
+        vMatValues(1,Np1) = fcRes2 ;
+      }else{
+        point = r;
+        vMatValues(1,Np1) = fcRes ;
+      }
+      //       vMatValues.Print("vMatValues\n");
+      //      vMatbp.Print("vMatbp\n");
+      
+      continue;
+    }
+    
+    
+    if(fcRes<vMatValues(1,*nParams)){
+      // idx =(int) vMatValues(2,*nParams);// set second worst solution
+      //  point.setValuesPtr(vMatbp.getColPtr(idx));
+      
+      point = r;
+      vMatValues(1,Np1) = fcRes ;
+      
+      //      vMatValues.Print("set r vMatValues\n");
+      //      vMatbp.Print("vMatbp\n");
+      
+      continue;
+    }
+    //       std::cout<<"fc res"<< fcRes<<std::endl;
+    //      std::cout<<"vMatValues(1,Np1) res"<< vMatValues(1,Np1)<<std::endl;
+    
+    
+    if(vMatValues(1,Np1)<fcRes){ 
+      e = (*beta) *m+(1.- *beta)*point;
+      //       std::cout<<"n+1 is better"<<std::endl;
+    }else{
+      e = (*beta) *m+(1.- *beta)*r;
+      //       std::cout<<"fc is better"<<std::endl;
+      //     r.Print("my r");
+    }
+    
+    //   e.Print("cp before ckbound");
+    
+    chkBound(e,lower,upper );
+    fcRes = dummy2(Xmat,Ymat,e,ordersmat, result,Xtransmat);
+    //  e.Print("get cp query");
+    if(fcRes< vMatValues(1,Np1)){
+      point = e;
+      vMatValues(1,Np1)= fcRes ;
+      //    vMatValues.Print("vMatValues accteo cp");
+      //    vMatbp.Print("vMatbp");
+      
+      continue;
+    }
+    
+    // idx =(int) vMatValues(2,*nParams);// set second worst solution
+    //  point.setValuesPtr(vMatbp.getColPtr(idx));
+    
+    idx = (int) vMatValues(2,1);
+    RMat best(vMatbp.getColPtr(idx),*nParams ,1); 
+    
+    for(int k=2;k<= vMatbp.NumCols();++k){ 
+      idx = (int) vMatValues(2,k);
+      point.setValuesPtr(vMatbp.getColPtr(idx));
+      
+      e = best+ (*sigma) *( point -best);
+      chkBound(e,lower,upper );
+      point = e;
+      fcRes = dummy2(Xmat,Ymat,e,ordersmat, result,Xtransmat);
+      vMatValues(1,k)= fcRes;
+    }
+    
+    
+  }
+  *resPtr =vMatValues(2,1) ;
+  
+}
+  
+  ///////////// will be deleted
+  
+
 }
