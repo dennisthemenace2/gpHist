@@ -56,7 +56,6 @@ conjgradFP = function(A,b,x,orders,sigma,weights,max=1000){
   for (i in 1:max ){
     Ap= fastMultiply(A,p,orders,sigma,weights) #A%*%p;
     alpha=as.numeric(rsold/(t(p) %*%Ap)) ;
-    
     x=x+alpha*p;
     
     if(i %% 50 == 0){
@@ -106,7 +105,7 @@ downhillsimplex = function(fc,N,bp=NULL,lower=0,upper=1,it=1000,tol=1e-10){
     print('this will not work for 1 parameter only')
   }
   if(length(lower)<N){
-    lower = rep(lower,N)
+    lower = rep(lower,N)downhillsimplex
   }
   if(length(upper)<N){
     upper = rep(upper,N)
@@ -214,6 +213,9 @@ downhillsimplex = function(fc,N,bp=NULL,lower=0,upper=1,it=1000,tol=1e-10){
     
   }
 #  cat(c('iterations:',i,'\n') )
+  if(i == it){
+    cat(c('potentially not converged. Diff:',abs(bp[1,N+1]-bp[N+1,N+1]) ,'\n') )
+  }
   bp
 }
 
@@ -259,58 +261,103 @@ paramMinkern = function(x,y,w){
   sum(res)
 }
 
-
-
 gpVariance= function( GP,X,x_pred){
   N= nrow(X)
 
-  ##calc sigma
-  k_dist_fast = c()
-  for(i in 1:nrow(x_pred) ){
-    ##each dim
-    C =0
-    for(d in 1:ncol(x_pred)){
-      ord = GP$orders[[d]]
-      tmp = X[ord,d]
-      
-      idx= which(tmp <x_pred[i,d]  ) 
-      if(length(idx)>0){
-        idx = max(idx)
-        A = sum( (GP$weights[d]*tmp[1:idx])^2)
-      }else{
-        A=0
-        idx=0
-      #  A= A + sum( (GP$weights[d]*tmp[1])^2)
-      #  C= C + sum( (GP$weights[d]*tmp[N])^2)
+  if(GP$approx){
+  
+    ##calc sigma
+    k_dist_fast = c()
+   #ksKks=c()
+    for(i in 1:nrow(x_pred) ){
+      ##each dim
+      C =0
+   # ksKks[i] =0
+      for(d in 1:ncol(x_pred)){
+        ord = GP$orders[[d]]
+        tmp = X[ord,d]
         
-        #idx = 1
-       # next;
+        idx= which(tmp <x_pred[i,d]  ) 
+        if(length(idx)>0){
+          idx = max(idx)
+          A = sum( (GP$weights[d]*tmp[1:idx])^2)
+        #  ksKks[i] = ksKks[i] + sum( (GP$weights[d]*tmp[1:idx])^2 * 1/GP$lambdas$values[1:idx] )
+     #     ksKks[i] = ksKks[i] + sum( ( matrix(GP$weights[d]*tmp[1:idx],nrow=1)%*%rt$u[1:idx,1:idx] )^2 * 1/GP$lambdas$values[1:idx] )
+        }else{
+          A=0
+          idx=0
+        #  A= A + sum( (GP$weights[d]*tmp[1])^2)
+        #  C= C + sum( (GP$weights[d]*tmp[N])^2)
+          
+          #idx = 1
+         # next;
+        }
+        B = (N-(idx) )*( (GP$weights[d]*x_pred[i,d] ) ^2)
+        
+        #ksKks[i] = ksKks[i] + sum( (GP$weights[d]*x_pred[i,d])^2 * 1/GP$lambdas$values[(idx+1):N ] )
+      #  ksKks[i] = ksKks[i] + sum( (matrix(rep(GP$weights[d]*x_pred[i,d],N-idx) ,nrow=1)%*% rt$u[(idx+1):N,(idx+1):N ]) ^2 * 1/GP$lambdas$values[(idx+1):N ] )
+        
+      #   (1/GP$lambdas$values[1])
+        
+        C = C+ (A+B)
+        
       }
-      B = (N-(idx) )*( (GP$weights[d]*x_pred[i,d] ) ^2)
-      C = C+ (A+B)
+      k_dist_fast = c(k_dist_fast ,C)
     }
-    k_dist_fast = c(k_dist_fast ,C)
-  }
+    
+    ###
+    #K_starStar = outer(1:(nrow(x_pred)), 1:nrow(x_pred), FUN =Vectorize( function(i,j) paramMinkern(x_pred[i,],x_pred[j,],GP$weights) ) )
+    #K = outer(1:(N), 1:(N), FUN =Vectorize( function(i,j) paramMinkern(X[i,],X[j,],GP$weights) ) ) ##with params
+    # K = K +diag(N)*GP$sigma
+    #
+    #  k_star =  outer(1:(N), 1:nrow(x_pred), FUN =Vectorize( function(i,j) minkern(X[i,],x_pred[j,],GP$weights) ) )
+    
+    #L =chol(K)
+    #sL = ginv(L)#solve(L)
+    #v = t(sL) %*% k_star
+    #
+    
+    #V =K_starStar - t(v)%*%v
+    
+    
+    sum2 =  (1/GP$lambdas$values[1]) *(k_dist_fast )
+    #sum2 = 0
+    #for(i in 1:length(GP$lambdas$values)){
+    #  sum2 = sum2+ (1/GP$lambdas$values[i]) *(k_dist_fast )
+    #}
+    
+  #  K_starStarFast = rowSums(x_pred%*%GP$weights) ### this is only the diagonal
+   # transXp = GP$gx(x_pred[,1], GP$px[1] )
+  #  if(ncol(x_pred) >1){
+  #    for(i in 2:ncol(x_pred)){
+  #      transXp = cbind( transXp,GP$gx(x_pred[,i], GP$px[i] ) )
+  #    }
+  #  }
+    
+    # k_star_dist = sum(k_star^2)
+    #
   
-  ###
-  #K_starStar = outer(1:(nrow(x_pred)), 1:nrow(x_pred), FUN =Vectorize( function(i,j) paramMinkern(x_pred[i,],x_pred[j,],GP$weights) ) )
-  
-  
-  sum2 =  (1/GP$lambdas$values[1]) *(k_dist_fast )
-#  K_starStarFast = rowSums(x_pred%*%GP$weights) ### this is only the diagonal
- # transXp = GP$gx(x_pred[,1], GP$px[1] )
-#  if(ncol(x_pred) >1){
-#    for(i in 2:ncol(x_pred)){
-#      transXp = cbind( transXp,GP$gx(x_pred[,i], GP$px[i] ) )
-#    }
-#  }
-
-  K_starStarFast = rowSums( x_pred %*%GP$weights) ### this is only the diagonal
-  
-  var = K_starStarFast -sum2 + GP$sigma
-  if(any(var<=0) ){
-    print('variance is negative fix this')
-    var = abs(var)
+    K_starStarFast = rowSums( x_pred %*%GP$weights) ### this is only the diagonal
+    
+    var = K_starStarFast -sum2 + GP$sigma
+    if(any(var<0) ){
+      print('variance is negative fix this')
+    #  stop()
+      var = abs(var)
+    }
+  }else{
+    
+    K_starStar = outer(1:(nrow(x_pred)), 1:nrow(x_pred), FUN =Vectorize( function(i,j) GP$kernel(x_pred[i,],x_pred[j,],GP$weights) ) )
+    k_star =  outer(1:(N), 1:nrow(x_pred), FUN =Vectorize( function(i,j) GP$kernel(X[i,],x_pred[j,],GP$weights) ) )
+    
+    v = t(GP$sL) %*% k_star
+    var= diag(K_starStar - t(v)%*%v)
+    if(any(var<0)){
+      print('variance is negative fix this')
+      stop()
+      var = abs(var)
+    }
+    
   }
   
   var
@@ -321,42 +368,48 @@ gpHistPredict =function(GP,X,x_pred){
 
   NRA = nrow(GP$alpha)
   
-  pred = c()
-  for(i in 1:nrow(x_pred) ){
-    ##each dim
-    C=0
-    for(d in 1:ncol(x_pred)){
-      
-      ord = GP$orders[[d]]#order(X[,d])
-      tmp = X[ord,d]
-      
-      idx= which(tmp < x_pred[i,d]) 
-      if(length(idx)>0){
-        idx = max(idx) 
-        if(idx==NRA){###largest
-          C = C+ GP$alpha[ord][1:idx] %*% tmp[1:idx]
-       #   C = C+ sum(GP$alpha[ord][1:idx]) %*% x_pred[i,d]
-          next;
-        }else{
-          A = GP$alpha[ord][1:idx] %*% tmp[1:idx]
-        }
-      }else{ ###point even further left....
-        A=0
-        idx = 0;
-        #C= C+ GP$weights[d]* GP$alpha[ord][1] ### ???
-        ##can i predict most left value ??
-      #  next;
-      }
-      B = sum(GP$alpha[ord][(idx+1):NRA]) * x_pred[i,d]
-      C = C+ GP$weights[d]*(A+B)
-    }
-    if(is.na(C)){
-      print('prediction is na')
-      stop()
-    }
-    pred = c(pred,C)
-  }
+  if(GP$approx){
   
+    pred = c()
+    for(i in 1:nrow(x_pred) ){
+      ##each dim
+      C=0
+      for(d in 1:ncol(x_pred)){
+        
+        ord = GP$orders[[d]]#order(X[,d])
+        tmp = X[ord,d]
+        
+        idx= which(tmp < x_pred[i,d]) 
+        if(length(idx)>0){
+          idx = max(idx) 
+          if(idx==NRA){###largest
+            C = C+ GP$weights[d]* (GP$alpha[ord][1:idx] %*% tmp[1:idx])
+         #   C = C+ sum(GP$alpha[ord][1:idx]) %*% x_pred[i,d]
+            next;
+          }else{
+            A = GP$alpha[ord][1:idx] %*% tmp[1:idx]
+          }
+        }else{ ###point even further left....
+          A=0
+          idx = 0;
+          #C= C+ GP$weights[d]* GP$alpha[ord][1] ### ???
+          ##can i predict most left value ??
+        #  next;
+        }
+        B = sum(GP$alpha[ord][(idx+1):NRA]) * x_pred[i,d]
+        C = C+ GP$weights[d]*(A+B)
+      }
+      if(is.na(C)){
+        print('prediction is na')
+        stop()
+      }
+      pred = c(pred,C)
+    }
+  }else{
+    k_star =  outer(1:(nrow(X)), 1:nrow(x_pred), FUN =Vectorize( function(i,j) GP$kernel(X[i,],x_pred[j,],GP$weights) ) )
+    pred = t(k_star)  %*% GP$alpha
+    
+  }
   pred
 }
 
@@ -381,6 +434,14 @@ gx = function(X,P){
   }
   X
 }
+
+gx = function(X,P){
+  for(i in 1:nrow(X)){
+    X[i,] = (exp(P*abs(X[i,]))-1) / (exp(P)-1)
+  }
+  X
+}
+
 gx = function(X,P){
   for(i in 1:nrow(X)){
     X[i,] = (P+X[i,])
@@ -389,7 +450,7 @@ gx = function(X,P){
 }
 
 ####make some hist efficent gp
-gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
+gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL,approx=T){
   N = nrow(X)
   P = ncol(X)
   ###just tranfom g
@@ -398,7 +459,7 @@ gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
     alpha_prev = matrix(0,nrow=nrow(Y))
   }else{
     if(nrow(alpha_prev)!=nrow(Y)){
-      print('alpha dimension missmatch')
+    #  print('alpha dimension missmatch')
       alpha_prev = rbind(alpha_prev,matrix(rep(0,nrow(Y)-nrow(alpha_prev) ) ) )
     #  alpha_prev = rbind(alpha_prev,matrix(rep(alpha_prev[length(alpha_prev)],nrow(Y)-nrow(alpha_prev) ) ) )
     }
@@ -457,7 +518,18 @@ gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
   }
   
   ###calc alpha directly 
-  alpha_direct = conjgradFP(X,Y,alpha_prev,orders,sigma,weights)  # conjgrad(K,Y,matrix(0,nrow=nrow(Y)) )
+  if(approx){
+    alpha_direct = conjgradFP(X,Y,alpha_prev,orders,sigma,weights)  # conjgrad(K,Y,matrix(0,nrow=nrow(Y)) )
+  }else{
+    N = nrow(X)
+    K = outer(1:(N), 1:(N), FUN =Vectorize( function(i,j) minkern(X[i,],X[j,],weights) ) ) ##with params
+    K = K +noise
+    
+    K_inv = ginv(K)#solve(K)
+    alpha_direct = K_inv %*% Y
+    
+    
+  }
   
   if(DEBUG){
     if(any(abs(alpha_direct-alpha)>1e-3 )){
@@ -483,7 +555,7 @@ gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
     
     predictions = t(k_star)  %*% alpha
     
-    GPt = list('alpha'=alpha_direct,'orders'=orders,'weights'=weights,'sigma'=sigma)
+    GPt = list('alpha'=alpha_direct,'orders'=orders,'weights'=weights,'sigma'=sigma,'approx'=T)
     pred_test =  gpHistPredict(GPt,X,x_pred)
     if(abs(predictions - pred_test)>0.0001){
       print('prediction missmatch')
@@ -522,52 +594,63 @@ gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
   #    X_trans = gx(X[,i],px[i])
   #  }
   #}
-  mu1 = N*sigma + sum(X %*%weights)  #### 
-  
-  if(DEBUG){
-    if(abs(sum(diag(K)) -mu1)>1e-6){
-      print('error calculating mu1')
+  if(approx){
+    mu1 = N*sigma + sum(X %*%weights)  #### 
+    
+    if(DEBUG){
+      if(abs(sum(diag(K)) -mu1)>1e-6){
+        print('error calculating mu1')
+        stop()
+      }
+    }
+    ####get eigen values !
+    
+    b = matrix(runif( N,0.5,1)) ##mabe do some better stuff here to get eigenvalues
+    TT= lanczosKERN(X,b,orders,sigma,weights)
+    
+    lambdas = eigen(TT, only.values = TRUE)
+    beta= lambdas$values[1]
+    mu2 =  sum(lambdas$values[1]^2)
+   
+     
+    if(DEBUG){
+      ###check real quick
+      if(abs(prod(lambdas$values)-det(K))>1e-10 ){
+        #print('error eigen values not matching')
+        if(abs(lambdas$values[1]-eigen(K)$values[1])>1e-4 ){
+          print('first eigenvalue not matching')
+          #stop()      
+        }
+        
+      }
+    }
+    t_bar = (beta*mu1 - mu2) /(beta*N - mu1)
+    if(is.na(t_bar)){
+      print('t_bar is na !')
       stop()
     }
-  }
-  ####get eigen values !
-  
-  b = matrix(runif( N,0.5,1)) ##mabe do some better stuff here to get eigenvalues
-  TT= lanczosKERN(X,b,orders,sigma,weights)
-  
-  lambdas = eigen(TT, only.values = TRUE)
-  beta= lambdas$values[1]
-  mu2 =  sum(lambdas$values[1]^2)
- 
-   
-  if(DEBUG){
-    ###check real quick
-    if(abs(prod(lambdas$values)-det(K))>1e-10 ){
-      #print('error eigen values not matching')
-      if(abs(lambdas$values[1]-eigen(K)$values[1])>1e-4 ){
-        print('first eigenvalue not matching')
-        #stop()      
-      }
-      
-    }
-  }
-  t_bar = (beta*mu1 - mu2) /(beta*N - mu1)
-  if(is.na(t_bar)){
-    stop()
-  }
-  t_bar2 = t_bar^(2)
-  
-  beta2 = beta^2
-  
-  t1 = matrix(c(log(beta),log(t_bar)),nrow=1,ncol=2)
-  #t2 = matrix(c(beta,beta^2,t_bar,t_bar^(2) ),nrow=2,ncol=2 )
-  
-  t2 =(1/(beta*t_bar2 - t_bar*beta2 ))* matrix(c(t_bar2,-beta2,-t_bar,beta ),nrow=2,ncol=2 ) ## write inverse directly
-  
-  t3 = matrix(c(mu1,mu2),ncol=1,nrow =2)
+    t_bar2 = t_bar^(2)
     
-#  logdetM =  t1%*%solve(t2) %*%t3
-  logdetM =  t1%*%t2%*%t3
+    beta2 = beta^2
+    
+    t1 = matrix(c(log(beta),log(t_bar)),nrow=1,ncol=2)
+    #t2 = matrix(c(beta,beta^2,t_bar,t_bar^(2) ),nrow=2,ncol=2 )
+    
+    t2 =(1/(beta*t_bar2 - t_bar*beta2 ))* matrix(c(t_bar2,-beta2,-t_bar,beta ),nrow=2,ncol=2 ) ## write inverse directly
+    
+    t3 = matrix(c(mu1,mu2),ncol=1,nrow =2)
+      
+  #  logdetM =  t1%*%solve(t2) %*%t3
+    logdetM =  t1%*%t2%*%t3
+    print(logdetM)
+  }else{
+    L = chol(K)
+    sL = ginv(L)#solve(L)
+    
+    logdetM =  sum(log(diag(L)))*2
+    ###for compatibility reasons
+    lambdas  = eigen(K)
+  }
   
   
   ##calc sigma
@@ -641,13 +724,24 @@ gphist=function(X,Y,sigma,minkern,weights,orders=NULL,alpha_prev=NULL){
   
 #  logmarginal2  = t(Y) %*%alpha + sum(log(diag(L)))
   
-  approxmarginal= 0.5*t(Y)%*%alpha_direct + logdetM/2
+  approxmarginal= 0.5*t(Y)%*%alpha_direct + logdetM/2 + nrow(X)/2*log(2*pi)
+  #print(' nrow(X)/2*log(2*pi)')
+  #print( nrow(X)/2*log(2*pi))
+  print('t(Y)%*%alpha_direct')
+  print(t(Y)%*%alpha_direct)
   
+  print("approxmarginal")
+print(approxmarginal)
 #  cat(c('marginal approx dif:',approxmarginal - logmarginal , '\n'))
   ##get log det bound
   
   ##optimze ?
-  list('logmarginal'=approxmarginal,'orders'=orders,'alpha'=alpha_direct,'weights'=weights,'lambdas'=lambdas,'sigma'=sigma)
+  if(!approx || DEBUG){
+    ret = list('logmarginal'=approxmarginal,'orders'=orders,'alpha'=alpha_direct,'weights'=weights,'lambdas'=lambdas,'sigma'=sigma,'approx'=approx,'L'=L,'sL'=sL,'kernel'=minkern)
+  }else{
+    ret = list('logmarginal'=approxmarginal,'orders'=orders,'alpha'=alpha_direct,'weights'=weights,'lambdas'=lambdas,'sigma'=sigma,'approx'=approx)
+  }
+  ret
 }
 
 gpHistUpdata = function(X,Y,X_old,Y_old,gpList){
@@ -903,8 +997,8 @@ Utility <- function(x_vec, X,GP,y_max, acq = "ucb", kappa, eps,gx=NULL,px=NULL) 
   GP_MSE <- gpVariance( GP,X,testpoint)#GP_Pred$MSE %>% pmax(., 1e-9)
  # print(GP_Mean)
 #  print(GP_MSE)
-  if(GP_MSE<=0){
-    print('error')
+  if(GP_MSE<0){
+    print('error GP_MSE < 0')
     print(x_vec)
     stop()
   }
@@ -970,9 +1064,55 @@ fc = function(p){
   ret = 100*(p[2]-p[1]^2)^2+(1-p[1])^2
 }
 
+fc2 = function(p1,p2){
+  ret = 100*(p2-p1^2)^2+(1-p1)^2
+  ret = ret*-1
+  list(Score = ret,Pred=ret*-1)
+}
+
+
+BayesianOptimization(fc2,bounds = list(p1 = c(0, 10),p2=c(0,10)), init_points = 20, n_iter = 20,
+acq = "ucb", kappa = 2.576, eps = 0.0,verbose = TRUE)
+
+
+fctest = function(p){
+ # ret = (p^2)+2
+  ret = sin(2*pi*p*0.1)-2 #+p +sin(2*pi*p*0.7) 
+}
+
+res =optimizeMe(fctest,npoints=20,ndim=1,lower=0,upper=10,0.0001,2,10,5,approx=F,kern =expkern,acq = 'ei')
+
+gx = function(X,P){
+  for(i in 1:nrow(X)){
+    X[i,] = (110+X[i,])
+  }
+#  print(P)
+  X
+}
+
+
+
+res =optimizeMe(fctest,npoints=20,ndim=1,lower=-10,upper=10,0.0001,0.1,20,5,approx=T,kern =paramMinkern,gx = gx,noGxParams = T)
+
 res=optim(c(10,5),fc)
 resmat = downhillsimplex(fc,2)
-res =optimizeMe(fc,npoints=20,ndim=2,lower=0,upper=10,0.0001,10,20,1)
+res =optimizeMe(fc,npoints=20,ndim=2,lower=0,upper=10,0.0001,2,5,1,approx=T,kern =paramMinkern)
+
+expkern=function(xi,xj,l){
+  if(length(l)>1){
+    V =diag(as.numeric(l^2))
+  }else{
+    V=matrix(l^2)
+  }
+  
+  x = (xi - xj)
+  exp(-0.5 *  t(x)%*%V%*%(x) )
+ # x = (xi - xj)^2
+#  exp(-0.5 *  ( x/l^2) )
+}
+
+res =optimizeMe(fc,npoints=20,ndim=2,lower=0,upper=10,0.0001,2,5,1,approx=F,kern =expkern)
+
 
 X= res$X
 Y= res$Y
@@ -980,17 +1120,44 @@ GP=res$GP
 resmat = res$resmat
 px = resmat[1,4:5]
 X_trans = gx(X,px)
-upper = 100
+upper = 10
 lower = 0
+##### check some stuff
+
+getParams = function(p){
+  gp = gphist(X ,Y,p[1],expkern,p[2],approx=F ); ##think about using old orders....
+  gp$logmarginal
+}
+
+res = optim(c(1,1),getParams,method = "L-BFGS-B",lower = 0.000001,upper = 100)
+
+GP$approx = F  
+p1 = gpHistPredict(GP,X_trans,matrix(c(40185910,3730411169),nrow=1))
+GP$approx = T
+p2 = gpHistPredict(GP,X_trans,matrix(c(40185910,3730411169),nrow=1))
+
+GP$approx = F 
+p3 = gpHistPredict(GP,X_trans,matrix(c(100,100),nrow=1))
+
+p3 = gpHistPredict(GP,X_trans,matrix(c(102.7377,108.2059164),nrow=1))
+
+GP$approx = F  
+var1 = gpVariance(GP,X_trans,matrix(c(100,100),nrow=1))
+GP$approx = T
+var2 = gpVariance(GP,X_trans,matrix(c(100,100),nrow=1))
+var3 = gpVariance(GP,X_trans,matrix(c(102.7377,108.2059164),nrow=1))
+
 
 PLOT=TRUE
 library(rgl)
 require(akima)
-
+require(MASS)
 ######optimise some crap
 res =optimizeMe(getY,2,1,0,1,0.0001,10,10,1)
 
-optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,update){
+optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,update,kern,approx=T,gx=NULL,noGxParams=F,acq = 'ucb',kappa=2.576,eps=0.0){
+
+  modelEvaluations = 0
 
   if(length(lower)==1){
     X <- matrix( runif(ndim*npoints , lower ,upper) ,nrow=npoints, ncol=ndim )
@@ -999,7 +1166,7 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
   }else{
     if(ndim != length(lower)){
       print('you have to specify a boundery for each dimension')
-      return
+      return(0)
     }
     X = matrix(runif(npoints , lower[1] ,upper[1]) ,nrow=npoints,ncol=1 )
     for(i in 2:length(lower)){
@@ -1013,7 +1180,30 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
   for(i in 1:nrow(X)){
     Y[i] = getY(X[i,])
   }
+  modelEvaluations = modelEvaluations +nrow(X)
+  ###check parambounds
   
+  if(is.null(gx) | noGxParams ){
+    trueDim =ndim+1 ##for sigma
+  }else{
+    trueDim =ndim*2+1 ##for sigma and gx
+  }
+  
+  if( (length(paramLower)<trueDim &length(paramLower)>1) |  (length(paramUpper)<trueDim &length(paramUpper)>1)){
+    cat(c('You have to specify:',trueDim,'bounderies for the parameters! ',length(paramLower),' are defined.\n'))
+    return(0)
+  }
+  
+  if(length(paramLower)<trueDim){
+    print('paramLower is changed!')
+    paramLower = rep(paramLower,trueDim)
+  }
+  if(length(paramUpper)<trueDim){
+    print('paramUpper is changed!')
+    paramUpper = rep(paramUpper,trueDim)
+  }
+  
+  ###
   
   GP = NULL
   dhfc = function(p){
@@ -1027,10 +1217,19 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
       #stop()
     }  
     P = length(p)
-    X_trans = gx(X,p[(P-ncol(X)+1):P])
-    
+    if(is.null(gx) ){
+      ret = gphist(X ,Y,p[1],kern,matrix(p[ 2:(1+ncol(X))]),approx=approx);
+    }else{
+      if(noGxParams){
+        X_trans = gx(X,0)
+        ret = gphist(X_trans ,Y,p[1],kern,matrix(p[ 2:(1+ncol(X))]),approx=approx);
+      }else{
+        X_trans = gx(X,p[(P-ncol(X)+1):P])
+        ret = gphist(X_trans ,Y,p[1],kern,matrix(p[ 2:(1+ncol(X))]),approx=approx);
+      }
+    }
   #  if(is.null(GP)){
-        ret = gphist(X_trans ,Y,p[1],paramMinkern,matrix(p[ 2:(1+ncol(X))]) );
+      #  ret = gphist(X_trans ,Y,p[1],kern,matrix(p[ 2:(1+ncol(X))]),approx=approx);
         GP<<-ret
   #  }else{
     # ret = gphist(X_trans ,Y,p[1:ncol(X)],paramMinkern,matrix(p[(ncol(X)+1):((ncol(X)*2))]), orders = GP$orders, alpha_prev = GP$alpha);
@@ -1040,36 +1239,50 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
     
     ret$logmarginal
   }
-  resmat = downhillsimplex(dhfc,ndim*2+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001)
+  if(is.null(gx)){
+    resmat = downhillsimplex(dhfc,ndim+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001)
+   
+  }else{
+    px=0;
+    if(noGxParams){
+      resmat = downhillsimplex(dhfc,ndim+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001)
+    }else{
+      resmat = downhillsimplex(dhfc,ndim*2+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001)
+      px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
+      ##plot some stuff
+    }
+    X_trans = gx(X,px) ##maybe i can save this step
+  }
   ##found parameters
  
-  
-  px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
-  
-  ##plot some stuff
-  X_trans = gx(X,px) ##maybe i can save this step
-  
   for( i in 1:it){
     #plot(X,Y,xlim=c(0,20),ylim=c(-10,200))
     if(PLOT & ndim==1){
-      plot(X,Y)
+      plot(X,Y,col='green',xlim=c(lower,upper))
       
       title(i)
-      predPoints = matrix(seq(0,1,0.1))
+      predPoints = matrix(seq(lower,upper,0.1))
   
-      x_pred_trans = gx(predPoints , resmat[1,3])
+      if(is.null(gx)){
+        preds = gpHistPredict(GP=GP,X=X,x_pred = predPoints)
+        vars =  gpVariance(GP=GP,X=X,x_pred = predPoints)
+      }else{
+        x_pred_trans = gx(predPoints , resmat[1,3])
+        preds = gpHistPredict(GP=GP,X=X_trans,x_pred = x_pred_trans)
+        vars =  gpVariance(GP=GP,X=X_trans,x_pred = x_pred_trans)
+      }
     
+      tp = getY(predPoints)
+      lines(predPoints,tp,col='blue')
       ##plot stuff  
-      preds = gpHistPredict(GP=GP,X=X_trans,x_pred = x_pred_trans)
+    
       lines(predPoints,preds,col='red')
-      vars =  gpVariance(GP=GP,X=X_trans,x_pred = x_pred_trans)
-      
-      lines(predPoints,preds-sqrt(vars),col='green' )
-      lines(predPoints,preds+sqrt(vars),col='green' )
+      lines(predPoints,preds-sqrt(vars),col='black' )
+      lines(predPoints,preds+sqrt(vars),col='black' )
       #####
     }else if(PLOT & ndim==2){
-      plot3d(X[,1],X[,2], Y, col="red", size=5) 
-      grid = 1.
+    #plot3d(X[,1],X[,2], Y, col="red", size=5) 
+      grid = 0.5
       pd = (upper-lower)/ grid +1
       points = matrix(,nrow=pd^2, ncol=2)
       rowidx = 1
@@ -1079,11 +1292,17 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
           rowidx = rowidx + 1
         }
       }
-      x_pred_trans = gx(points ,px)
+      if(is.null(gx)){
+        preds = gpHistPredict(GP=GP,X=X,x_pred = points)
+        vars =  gpVariance(GP=GP,X=X,x_pred = points)
+      }else{
+        x_pred_trans = gx(points ,px) 
+        preds = gpHistPredict(GP=GP,X=X_trans,x_pred = x_pred_trans)
+        vars =  gpVariance(GP=GP,X=X_trans,x_pred = x_pred_trans)
+      }
       
       ##plot stuff  
-      preds = gpHistPredict(GP=GP,X=X_trans,x_pred = x_pred_trans)
-      
+       
       tp=c()
       for(i in 1:nrow(points)){
         tp[i] = getY(points[i,])
@@ -1100,16 +1319,23 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
       #plot3d(allParams[,1], allParams[,2],allError[,1], col="red", size=5)
       persp3d(s$x,s$y,s$z, aspect=c(10, 1, 0.5),  col = "red", add=TRUE )
       persp3d(k$x,k$y,k$z, aspect=c(10, 1, 0.5),  col = "lightblue", add=TRUE )
-      plot3d(X[,1],X[,2], Y, col="green", size=5,add=T) 
+      plot3d(X[,1],X[,2], Y, col="green", size=10,add=T) 
       
-      vars =  gpVariance(GP=GP,X=X_trans,x_pred = x_pred_trans)
+    
       v=interp(points[,1], points[,2],preds-sqrt(vars) )
       persp3d(v$x,v$y,v$z, aspect=c(10, 1, 0.5),  col = "yellow", add=TRUE )
+      ###
+      #plot3d(0,0,0,  col = "purple",size=20,add=TRUE )
       
     }
     
     # utmat = Utility_Max(10,X,GP,max(Y))
-    utmat = Utility_Max(10,X_trans,GP,max(Y),lower,upper,gx = gx,px=px)
+    if(is.null(gx)){
+      utmat = Utility_Max(10,X,GP,max(Y),lower,upper,gx = NULL,px=NULL,acq = acq,kappa=kappa,eps=eps)
+    }else{
+      utmat = Utility_Max(10,X_trans,GP,max(Y),lower,upper,gx = gx,px=px,acq = acq, kappa=kappa,eps=eps) 
+    }
+    
     
     ##which is the min...
    for( w in 1:nrow(utmat)){
@@ -1137,34 +1363,54 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
       
       GP = NULL
       ##add some noise to resmat
-      resmat = downhillsimplex(dhfc,ndim*2+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) 
       
-      px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
-      
-      X_trans = gx(X,px)
+      if(is.null(gx)){
+        resmat = downhillsimplex(dhfc,ndim+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) 
+      }else{
+        if(noGxParams){
+          resmat = downhillsimplex(dhfc,ndim+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) 
+        }else{
+          resmat = downhillsimplex(dhfc,ndim*2+1,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) 
+          px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
+        }
+        X_trans = gx(X,px)
+      }
       next;
       
     #  stop()
     }
     newX = matrix(newX,nrow=1)
     newY = getY(newX ) ###get real Y
+    modelEvaluations = modelEvaluations +1
+    
+    cat(c('new point:',newX,'\n'))
     X= rbind(X, newX)
     Y= rbind(Y,newY )
     ##update gaussian process
     if(PLOT& ndim==1){
-      points(newX,newY,col='blue')
+      points(newX,newY,col='purple')
+    }else if(PLOT &ndim==2){
+      plot3d(newX[1],newX[2],newY, col = "purple",size=10,add=TRUE )
+    }
+    if(is.null(gx)){
+      ###do nottin
+    }else{
+      X_trans = rbind(X_trans, gx(newX,px ) ) 
     }
     
-    X_trans = rbind(X_trans, gx(newX,px ) ) 
-    
     if(i %% update){
-      GP = gphist(X_trans ,Y,GP$sigma,paramMinkern,GP$weights,alpha_prev = GP$alpha ); ##think about using old orders....
+      if(is.null(gx)){
+        GP = gphist(X ,Y,GP$sigma,kern,GP$weights,alpha_prev = GP$alpha , approx=approx ); ##think about using old orders....
+      }else{
+        GP = gphist(X_trans ,Y,GP$sigma,kern,GP$weights,alpha_prev = GP$alpha,approx=approx ); ##think about using old orders....
+      }
     }else{
       GP = NULL
       ##add some noise to resmat
   #    resmat = resmat + rnorm(length(resmat),0,0.1 )
       
-      resmat = resmat[,1:(ndim*2+1)]
+      R = ncol(resmat)-1
+      resmat = resmat[,1:R]
       best = resmat[1,]
       for(z in 1:ncol(resmat)){
         if(length(paramLower)>1){
@@ -1177,19 +1423,29 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
         }else{
           pu = paramUpper
         }
-        resmat[2:(ndim*2+2),z] = runif(ndim*2+1,pl,pu)
+        resmat[2:(R+1),z] = runif(R,pl,pu)
         #resmat[2:(ndim*2+2),z] = runif(ndim*2+1,paramLower[z],paramUpper[z])
        # resmat[2:(ndim*2+2),z] = runif(ndim*2+1,paramLower,paramUpper)
       }
-      resmat = downhillsimplex(dhfc,ndim*2+1,bp=resmat,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
-      print(sum(abs(best - resmat[1,1:(ndim*2+1)])))
+     # resmat = downhillsimplex(dhfc,ndim*2+1,bp=resmat,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
       
       
      # if(is.null(GP)){
     #    resmat = downhillsimplex(dhfc,ndim*3,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
     #  }
-      px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
-      X_trans = gx(X,px)
+      if(is.null(gx)){
+        resmat = downhillsimplex(dhfc,ndim+1,bp=resmat,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
+        print(sum(abs(best - resmat[1,1:(ndim+1)])))
+      }else{
+        if(noGxParams){
+          resmat = downhillsimplex(dhfc,ndim+1,bp=resmat,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
+        }else{
+          resmat = downhillsimplex(dhfc,ndim*2+1,bp=resmat,lower=paramLower,upper=paramUpper,it = 100,tol=0.001) ##update params
+          print(sum(abs(best - resmat[1,1:(ndim*2+1)])))
+          px = resmat[1, (ncol(resmat)-ncol(X)):(ncol(resmat)-1) ]
+        }
+        X_trans = gx(X,px)  
+      }
     }
     ##retrain ?
   }
@@ -1199,10 +1455,10 @@ optimizeMe =function(getY,npoints,ndim,lower,upper,paramLower,paramUpper,it,upda
   cat(c('minimum:  x:',xminpos,' y:',Y[yminpos],'\n'  ) )
   
   #list('X'=xminpos,'Y'=Y[yminpos])
-  list('X'=X,'Y'=Y,'Xpos'=xminpos,'Ymin'=Y[yminpos],'GP'=GP,'resmat'=resmat)
+  list('X'=X,'Y'=Y,'Xpos'=xminpos,'Ymin'=Y[yminpos],'GP'=GP,'resmat'=resmat,'modelEvaluations'=modelEvaluations)
 }
 
-
+#
 gs = function(V){
   n = nrow(V);
   k = ncol(V);
@@ -1311,10 +1567,11 @@ getTriEigen=function(alpha,beta){
     }
   }
 
+  cat(c("min:",bmin,' max:',bmax,'\n') )
   tval = c(floor(bmin) :ceiling(bmax) )
 
   
-  res= matrix(0,nrow=length(tval),ncol=nrow(M))
+  res= matrix(0,nrow=length(tval),ncol=length(alpha))
   k = 0
   for(i in tval){
     k= k+1
@@ -1392,3 +1649,39 @@ getTriEigen=function(alpha,beta){
 }
 
 res = getTriEigen(c(2,2,2),c(-1,-1))
+###power
+
+getEigen=function(A,b){
+  last = 0
+  for(i in 1:10000){
+    tmp = A%*%b
+    norm = as.numeric(sqrt(t(tmp)%*%tmp))
+    b = tmp / norm
+    if(abs(last-norm)<1e-10 ){
+      print(i);
+      print('conv\n')
+      break;
+    }
+    last= norm
+  }
+  list('value'= norm,'vec'=b )
+}
+
+getEigenKern=function(A,b,orders,sigma,weights){
+  last = 0
+  for(i in 1:10000){
+    tmp = fastMultiply(A,b,orders,sigma,weights) #A%*%p;
+    print(tmp)
+    norm = as.numeric(sqrt(t(tmp)%*%tmp))
+    print(norm)
+    b = tmp / norm
+    print(b)
+    if(abs(last-norm)<1e-10 ){
+      print(i);
+      print('conv\n')
+      break;
+    }
+    last= norm
+  }
+  list('value'= norm,'vec'=b )
+}
