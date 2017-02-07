@@ -10,6 +10,8 @@
 #include <iostream> // For cout, cerr, endl, and flush
 #include <algorithm>
 #include <stdlib.h>
+
+#include <pthread.h>
 /*
 void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
   
@@ -47,60 +49,234 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
   
 }*/
 
+///// Chose of parallel or not
+#define COMPILE_PARALLEL 1 // set to 0 for parallel execution
 
-void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
-  //std::cout<<"fastMultiply start"<<std::endl;
+#if COMPILE_PARALLEL == 0
   
-  
-  //  RMat prev(Y.NumRows ,1);
-  result.SetZero();
-  unsigned int NR = X.NumRows();
-  
-  double *result_ptr = result.getValuesPtr();
-  
-  RMat YsumMat(NR,1);
-  double*  YsumMat_ptr = YsumMat.getValuesPtr();
-  double* Y_ptr = Y.getValuesPtr();
-   
-  for(unsigned int i=1;i<=X.NumCols();++i){
-    
-    unsigned int idx = 0;
-    double matcount = 0;
-
-    
-    double* order_prt = orders.getColPtr(i);
-    double* idx_prt = order_prt;
-    double* X_ptr = X.getColPtr(i);
+  void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
+    //std::cout<<"fastMultiply single"<<std::endl;
     
     
-    //calc Y_sum first
-    double Ysum=0;
-    for(int x=NR-1;x>=0;--x ){ // estimate Y.sum(k,NR); 
-      Ysum += Y_ptr[(int) order_prt[x]-1 ]; //Y(orders(x,i) ,1);
-      YsumMat_ptr[x] = Ysum;
-    }
-    //YsumMat.Print("Ysummat");
+    //  RMat prev(Y.NumRows ,1);
+    result.SetZero();
+    unsigned int NR = X.NumRows();
     
-    for(unsigned int k=0;k<NR-1;++k ){ // estimate prev
-      idx =  *(idx_prt++); //orders(k,i);
-      idx -=1;
+    double *result_ptr = result.getValuesPtr();
+    
+    RMat YsumMat(NR,1);
+    double*  YsumMat_ptr = YsumMat.getValuesPtr();
+    double* Y_ptr = Y.getValuesPtr();
+     
+    for(unsigned int i=1;i<=X.NumCols();++i){
       
-      result_ptr[idx] +=  matcount + X_ptr[idx]*YsumMat_ptr[k]; // Ysum
-      matcount = matcount + X_ptr[idx] * Y_ptr[idx];
+      unsigned int idx = 0;
+      double matcount = 0;
+  
+      
+      double* order_prt = orders.getColPtr(i);
+      double* idx_prt = order_prt;
+      double* X_ptr = X.getColPtr(i);
+      
+      
+      //calc Y_sum first
+      double Ysum=0;
+      for(int x=NR-1;x>=0;--x ){ // estimate Y.sum(k,NR); 
+        Ysum += Y_ptr[(int) order_prt[x]-1 ]; //Y(orders(x,i) ,1);
+        YsumMat_ptr[x] = Ysum;
+      }
+      //YsumMat.Print("Ysummat");
+      
+      for(unsigned int k=0;k<NR-1;++k ){ // estimate prev
+        idx =  *(idx_prt++); //orders(k,i);
+        idx -=1;
+        
+        result_ptr[idx] +=  matcount + X_ptr[idx]*YsumMat_ptr[k]; // Ysum
+        matcount = matcount + X_ptr[idx] * Y_ptr[idx];
+        
+      }
+      idx = *(idx_prt++);//orders(NR,i);
+      idx -=1; 
+    //  std::cout<<"Y(idx,1)"<<Y(idx,1)<<std::endl;
+      
+      result_ptr[idx] += matcount + X_ptr[idx] * YsumMat_ptr[NR-1];
       
     }
-    idx = *(idx_prt++);//orders(NR,i);
-    idx -=1; 
-  //  std::cout<<"Y(idx,1)"<<Y(idx,1)<<std::endl;
+    result += sigma*Y ;
     
-    result_ptr[idx] += matcount + X_ptr[idx] * YsumMat_ptr[NR-1];
-    
+    //std::cout<<"fastMultiply end"<<std::endl;
   }
-  result += sigma*Y ;
+
+#else 
+   /// PARALLEL Execution 
+  #define NUM_THREADS 4  // NUMBER OF THREADS THAT ARE CREATED
+   
+  struct thread_data_shared{
+    RMat* X;
+    RMat* Y;
+    RMat* orders;
+  };
   
-  //std::cout<<"fastMultiply end"<<std::endl;
+  struct thread_data{
+    unsigned  int  c;//start
+    unsigned int C;//end row
+    thread_data_shared* shared;
+  };
   
-}
+/*  struct ret_thread_data{
+  //  double *result;
+};*/
+  
+  void *threadFn(void *arg){
+    
+    struct thread_data *data;
+    data = (struct thread_data *) arg;
+    unsigned int NR = data->shared->X->NumRows();
+    
+ //   ret_thread_data *ret = new ret_thread_data;
+    double *result = new double[NR];
+    memset(result,0,sizeof(double)*NR);
+    ////////
+    RMat YsumMat(NR,1);
+    double*  YsumMat_ptr = YsumMat.getValuesPtr();
+    double* Y_ptr = data->shared->Y->getValuesPtr();
+    // do right collumns
+    for(unsigned int i=data->c+1; i<= data->C ;++i){
+      
+      unsigned int idx = 0;
+      double matcount = 0;
+      
+      double* order_prt = data->shared->orders->getColPtr(i);
+      double* idx_prt = order_prt;
+      double* X_ptr = data->shared->X->getColPtr(i);
+      
+      //calc Y_sum first
+      double Ysum=0;
+      for(int x=NR-1;x>=0;--x ){ // estimate Y.sum(k,NR); 
+        Ysum += Y_ptr[(int) order_prt[x]-1 ]; //Y(orders(x,i) ,1);
+        YsumMat_ptr[x] = Ysum;
+      }
+      //YsumMat.Print("Ysummat");
+      
+      for(unsigned int k=0;k<NR-1;++k ){ // estimate prev
+        idx =  *(idx_prt++); //orders(k,i);
+        idx -=1;
+        
+        result[idx] +=  matcount + X_ptr[idx]*YsumMat_ptr[k]; // Ysum
+        matcount = matcount + X_ptr[idx] * Y_ptr[idx];
+        
+      }
+      idx = *(idx_prt++);//orders(NR,i);
+      idx -=1; 
+      //  std::cout<<"Y(idx,1)"<<Y(idx,1)<<std::endl;
+      
+      result[idx] += matcount + X_ptr[idx] * YsumMat_ptr[NR-1];
+    
+    }
+    
+    
+    
+    
+    //////////
+    /*
+    
+    for(unsigned i =data->c+1; i<= data->C ;++i){
+      ///
+      unsigned int idx = 0;
+      double matcount = 0;
+      double Ysum;
+      
+      for(unsigned int k=1;k<NR;++k ){ // estimate prev
+        idx = (*data->shared->orders) (k,i);
+        
+        Ysum= 0;
+        for(unsigned int x=k;x<=NR;++x ){ // estimate Y.sum(k,NR); 
+          Ysum += (*data->shared->Y)( (*data->shared->orders)(x,i) ,1);
+        }
+        
+        ret->result[idx-1] +=  matcount + (*data->shared->X)(idx, i)*Ysum;
+        matcount = matcount + (*data->shared->X)(idx,i) * (*data->shared->Y)(idx,1);
+        
+      }
+      idx = (*data->shared->orders)(NR,i);
+      
+      ret->result[idx-1] += matcount + (*data->shared->X)(idx,i) * (*data->shared->Y)(idx,1);
+      
+    }*/
+    
+    pthread_exit( (void *)result);
+  }
+
+  
+  void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
+  //  std::cout<<"fastMultiply parallel"<<std::endl;
+    
+    //  RMat prev(Y.NumRows ,1);
+    result.SetZero();
+    unsigned int NR = X.NumRows();
+    
+    
+    unsigned int numThreads = X.NumCols(); // create a thread for each dimension
+    if(numThreads>NUM_THREADS){
+      numThreads = NUM_THREADS;
+    }
+    unsigned int each = X.NumCols()/numThreads;
+    
+   // std::cout<<"create "<<numThreads<<" each can do:"<<each <<std::endl;
+    
+    thread_data *tdata = new thread_data[numThreads];
+    thread_data_shared *shared = new thread_data_shared;
+    
+    //create shared data
+    shared->X = &X;
+    shared->Y = &Y;
+    shared->orders = &orders;
+    // shared data
+    
+    pthread_t *threads= new  pthread_t[numThreads];
+    
+    // set up data....
+    for(unsigned int c=0;c<numThreads;++c){
+      tdata[c].c=c*each;
+      tdata[c].C=c*each + each;
+      if(c== numThreads-1){
+        tdata[c].C=X.NumCols();
+      }
+      tdata[c].shared = shared;
+    }
+    // set up threat attr.
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+  
+    // start threads
+    for(unsigned t=0; t<numThreads; ++t)  {            
+      pthread_create(&threads[t],&attr, threadFn, (void *)&tdata[t]);
+    }
+  
+    // wait for all threads
+    for(unsigned t=0; t<numThreads; ++t)  {
+      //ret_thread_data *ret;
+      double *ret;
+      pthread_join(threads[t], (void**) &ret);
+  
+      RMat resMat(ret,NR ,1);
+      result +=resMat; // add dimensions
+      
+      //delete [] ret->result;
+      delete []ret;
+    }
+    
+    delete [] threads;
+    delete [] tdata;
+    delete shared;
+    
+    result += sigma*Y ;
+  
+  }
+  
+#endif
+
 
 bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned int max_iterations=1000 ) {
 
@@ -296,7 +472,7 @@ void CppHistVariance(double* result,double numRows,double numCols,double numRows
     vMatResult(i,1) = A+B;
   }
 //  vMatResult.Print("vmatresult");
-  vMatResult *= (1/lambda);
+  vMatResult *= (1.0/lambda);
 
   
  // vMatPred.RowSums().Print("rowssums") ;
