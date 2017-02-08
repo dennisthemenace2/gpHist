@@ -50,7 +50,7 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
 }*/
 
 ///// Chose of parallel or not
-#define COMPILE_PARALLEL 1 // set to 0 for parallel execution
+#define COMPILE_PARALLEL 2 // set to 0 for parallel execution
 
 #if COMPILE_PARALLEL == 0
   
@@ -107,7 +107,7 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
     //std::cout<<"fastMultiply end"<<std::endl;
   }
 
-#else 
+#elif COMPILE_PARALLEL ==1
    /// PARALLEL Execution 
   #define NUM_THREADS 4  // NUMBER OF THREADS THAT ARE CREATED
    
@@ -267,6 +267,8 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
       delete []ret;
     }
     
+    pthread_attr_destroy(&attr);
+    
     delete [] threads;
     delete [] tdata;
     delete shared;
@@ -274,7 +276,298 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
     result += sigma*Y ;
   
   }
+#else
   
+struct thread_data_shred{
+  unsigned int initcnt;
+  pthread_mutex_t initmutex;
+  
+  RMat* X;
+  RMat* Y;
+  RMat *result;
+  RMat *orders;
+  
+  bool run;
+  
+};
+  
+struct thread_data_Mutex{
+    unsigned  int  i;
+    unsigned  int  c;
+    unsigned int C;
+  
+    pthread_mutex_t xmutex;
+    
+    pthread_mutex_t pmutex;
+    pthread_mutex_t tmutex;
+    pthread_mutex_t tsmutex;
+
+    
+    thread_data_shred *shared;
+    
+};
+
+void *clientFnMutex(void *arg){
+    
+    struct thread_data_Mutex *data;
+    data = (struct thread_data_Mutex *) arg;
+    //   cout<<"run thread"<<endl;
+    
+    //
+    pthread_mutex_lock (&data->shared->initmutex);
+    //   cout<<"get init lock"<<endl;
+    pthread_mutex_lock (&data->pmutex);       
+    data->shared->initcnt +=1; 
+    pthread_mutex_unlock (&data->shared->initmutex);
+    
+
+    //cout<<"thread run code"<< data->c <<"-"<<data->C  <<endl;
+    while(true){
+      
+      pthread_mutex_lock (&data->tmutex); // wait till i shall run
+      // check abort
+      if(!data->shared->run){ // leave
+        break;
+      }
+      
+   
+      unsigned int NR = data->shared->X->NumRows();
+
+      double *result = new double[NR];
+      memset(result,0,sizeof(double)*NR);
+      ////////
+      RMat YsumMat(NR,1);
+      double*  YsumMat_ptr = YsumMat.getValuesPtr();
+      double* Y_ptr = data->shared->Y->getValuesPtr();
+      // do right collumns
+      for(unsigned int i=data->c+1; i<= data->C ;++i){
+        
+        unsigned int idx = 0;
+        double matcount = 0;
+        
+        double* order_prt = data->shared->orders->getColPtr(i);
+        double* idx_prt = order_prt;
+        double* X_ptr = data->shared->X->getColPtr(i);
+        
+        //calc Y_sum first
+        double Ysum=0;
+        for(int x=NR-1;x>=0;--x ){ // estimate Y.sum(k,NR); 
+          Ysum += Y_ptr[(int) order_prt[x]-1 ]; //Y(orders(x,i) ,1);
+          YsumMat_ptr[x] = Ysum;
+        }
+        //YsumMat.Print("Ysummat");
+        
+        for(unsigned int k=0;k<NR-1;++k ){ // estimate prev
+          idx =  *(idx_prt++); //orders(k,i);
+          idx -=1;
+          
+          result[idx] +=  matcount + X_ptr[idx]*YsumMat_ptr[k]; // Ysum
+          matcount = matcount + X_ptr[idx] * Y_ptr[idx];
+          
+        }
+        idx = *(idx_prt++);//orders(NR,i);
+        idx -=1; 
+        //  std::cout<<"Y(idx,1)"<<Y(idx,1)<<std::endl;
+        
+        result[idx] += matcount + X_ptr[idx] * YsumMat_ptr[NR-1];
+        
+      }
+      
+      
+      pthread_mutex_lock (&data->shared->initmutex);
+      double *fres = data->shared->result->getValuesPtr();
+      for(unsigned int i=0;i<NR;++i){
+        fres[i] += result[i];
+      }
+      pthread_mutex_unlock (&data->shared->initmutex);
+      
+      delete [] result;
+      //     cout<<"thread unlock stuff"<<i<<endl;
+      
+      pthread_mutex_unlock (&data->tmutex);
+      pthread_mutex_lock(&data->xmutex);        
+      pthread_mutex_unlock (&data->pmutex);   
+      
+      //   cout<<"thread sperre"<<i<<endl;
+      
+      pthread_mutex_lock (&data->tsmutex);
+      pthread_mutex_lock (&data->pmutex);    
+      pthread_mutex_unlock (&data->tsmutex);
+      pthread_mutex_unlock(&data->xmutex); 
+      
+      // cout<<"thread did run:"<<i<<endl;
+      
+      
+    }
+    // cout<<"finished"<<endl;
+    
+    std::cout<<"ending thread"<<std::endl;
+    pthread_exit(NULL);
+
+}
+
+thread_data_Mutex *tdata=0;  
+pthread_t *threads=0;
+pthread_attr_t attr;
+
+#define NUM_THREADS 4
+  
+  
+void CstartThreads(){
+  if(threads != NULL){
+    std::cout<<"Already initialized!"<<std::endl;
+    return;
+  }
+  tdata = new thread_data_Mutex[NUM_THREADS];
+  
+  threads= new  pthread_t[NUM_THREADS];
+  thread_data_shred *shared = new thread_data_shred;
+  
+
+    /* Initialize and set thread detached attribute */
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+  
+  
+ // pthread_mutex_t initmutex;
+  pthread_mutex_init(&shared->initmutex, NULL);
+  
+ // unsigned int initcnt = 0;
+  
+  shared->initcnt = 0;
+  shared->run = true;
+  //shared->initmutex = &initmutex;
+  
+  for(unsigned int c=0;c<NUM_THREADS;++c){
+    tdata[c].shared = shared;
+    
+    
+    pthread_mutex_init(&tdata[c].tmutex, NULL);
+    pthread_mutex_init(&tdata[c].pmutex, NULL);
+    pthread_mutex_init(&tdata[c].tsmutex, NULL);
+    pthread_mutex_init(&tdata[c].xmutex, NULL);
+    
+    pthread_mutex_lock(&tdata[c].tmutex);
+    
+  }
+  
+  
+  for(unsigned t=0; t<NUM_THREADS; ++t)  {
+    pthread_create(&threads[t],&attr, clientFnMutex, (void *)&tdata[t]);
+  }
+  
+  while(true){
+    //  cout<<"waiting"<<endl;
+    pthread_mutex_lock (&shared->initmutex);    
+    if(shared->initcnt ==NUM_THREADS){
+      pthread_mutex_unlock (&shared->initmutex);
+      break;
+    }
+    pthread_mutex_unlock (&shared->initmutex);
+  } // wait
+
+  
+  std::cout<<"init threads"<<std::endl;
+}
+void CstopThreads(){
+  if(threads == NULL){
+    std::cout<<"no threads initilized!"<<std::endl;
+    return;
+  }
+  
+  thread_data_shred *shared = tdata[0].shared;
+  
+  shared->run = false;
+  
+  // make them run
+ // for(unsigned t=0; t<NUM_THREADS; ++t)  {
+   // pthread_join(threads[t], (void**) &ret);
+  //}
+  for(unsigned int c=0;c<NUM_THREADS;c++){
+    //  cout<<"lock sperre"<<i<<endl;
+    pthread_mutex_unlock(&tdata[c].tmutex);
+   // pthread_mutex_lock(&tdata[c].xmutex);  
+  //  pthread_mutex_lock(&tdata[c].tsmutex); 
+  }
+    
+  for(unsigned int c=0;c<NUM_THREADS;++c){
+      pthread_mutex_destroy(&tdata[c].tmutex);
+      pthread_mutex_destroy(&tdata[c].pmutex);
+      pthread_mutex_destroy(&tdata[c].tsmutex);
+      pthread_mutex_destroy(&tdata[c].xmutex);        
+  }
+    
+  pthread_mutex_destroy(& shared->initmutex);
+  
+  pthread_attr_destroy(&attr);
+  
+  delete [] threads;
+  delete shared;
+    
+  delete [] tdata;
+  threads= NULL;
+  tdata= NULL;
+}
+void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
+  
+ 
+  
+  //for(unsigned int c=0;c<NUM_THREADS;++c){
+  //  tdata[c].shared = shared;
+//  }
+  
+  result.SetZero();
+  unsigned int NR = X.NumRows();
+  
+  //set up the threads
+  thread_data_shred* shared = tdata[0].shared;
+  shared->X = &X;
+  shared->Y = &Y;
+  shared->orders = &orders;
+  shared->result = &result;
+  
+  
+  unsigned int numThreads = X.NumCols(); // calculate the number of threads that we require.
+  if(numThreads>NUM_THREADS){
+    numThreads = NUM_THREADS;
+  }
+  unsigned int each = X.NumCols()/numThreads;
+
+  // set up data....
+  for(unsigned int c=0;c<numThreads;++c){
+    tdata[c].c=c*each;
+    tdata[c].C=c*each + each;
+    if(c== numThreads-1){
+      tdata[c].C=X.NumCols();
+    }
+    tdata[c].shared = shared;
+  }
+  
+  // start the threads that we need.
+  for(unsigned int c=0;c<numThreads;c++){
+    //  cout<<"lock sperre"<<i<<endl;
+    pthread_mutex_lock(&tdata[c].xmutex); 
+    pthread_mutex_lock(&tdata[c].tsmutex); 
+    //   cout<<"unlock tread"<<i<<endl;          
+    pthread_mutex_unlock(&tdata[c].tmutex);
+    pthread_mutex_unlock(&tdata[c].xmutex); 
+  }
+  
+  //wait until they are all done...
+  for(unsigned int c=0;c<numThreads;c++){         
+    //    cout<<"get program lock"<<i<<endl;
+    pthread_mutex_lock(&tdata[c].pmutex); 
+    pthread_mutex_lock(&tdata[c].tmutex);
+    //  cout<<"remove thread sperre"<<i<<endl;
+    pthread_mutex_unlock(&tdata[c].pmutex);     
+    pthread_mutex_unlock(&tdata[c].tsmutex);  
+    //    cout<<"unlock prgramm sperre"<<i<<endl;
+  }
+  
+  // add sigma
+  result += sigma*Y ;
+  
+}
 #endif
 
 
@@ -680,6 +973,16 @@ double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
 extern "C" {
     void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda){
     //  std::cout<<"CgpHist"  <<std::endl;
+     #if COMPILE_PARALLEL == 2
+       if(threads==NULL){
+         std::cout<<"CgpHist threads are not initialized. Call startThreads first!"  <<std::endl;
+        
+         std::cout<<"I call it for you but please call stopThreads() after you are finished!"  <<std::endl;
+        
+         CstartThreads();
+         return;
+       } 
+     #endif
       CppHist(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*sigma,orders,logmarginal,lambda);
     }
 
@@ -1053,5 +1356,13 @@ void CdownhillsimplexIN(int* nParams,double* bp,double* lower,double* upper,int 
   
   ///////////// will be deleted
   
-
+#if COMPILE_PARALLEL == 2
+  void startThreads(){
+    CstartThreads();
+  }
+  void stopThreads(){
+    CstopThreads();
+  }
+      
+#endif
 }
