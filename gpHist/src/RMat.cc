@@ -272,6 +272,26 @@ RMat::operator* (const RMat &vRhs) // maybe make this faster..
     return vProduct;
 }
 
+RMat RMat::tMultiply (RMat &vRhs){
+  
+  assert(mNumRows==vRhs.mNumRows);
+  
+  RMat vProduct(mNumCols,vRhs.NumCols());
+  for ( int i=1; i<=mNumCols; ++i){
+    double *p1=getColPtr(i);
+    for ( int j=1; j<=vRhs.NumCols(); ++j){
+      double *p2= vRhs.getColPtr(j);
+      double sum=0;
+      for(int z=0;z<mNumRows;++z){
+        sum+= p1[z]*p2[z];
+      }
+      vProduct(i,j)=sum;
+    }
+  }
+  return vProduct;
+}
+
+
 RMat RMat::ColSums(){
   RMat vProduct(mNumCols,1);
   for(int j=0;j<mNumCols;++j){

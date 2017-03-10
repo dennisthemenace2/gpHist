@@ -35,7 +35,8 @@ public:
     double* getColPtr( int col );
     double* getValuesPtr(){return mValues;};
     void setValuesPtr(double* ptr){mValues=ptr;};
-    
+    RMat tMultiply(RMat &vRhs);
+      
     friend RMat operator/(double vLhs, const RMat &vRhs){
       RMat vProduct(vRhs.mNumRows,vRhs.mNumCols);
       for ( int i=0; i<vRhs.mNumRows*vRhs.mNumCols; i++){

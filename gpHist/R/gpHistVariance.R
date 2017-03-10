@@ -23,7 +23,7 @@ gpHistVariance= function( GP,X,x_pred){
  ##check number of eigenvaules real quick
   if(length(GP$lambda)>1){ #Fine Approximation of
     #void CppHistVarianceFine(double* result,double numRows,double numCols,double numRows2,double numCols2,double* X,double* pred,double *alphas,double *lambda,int nlambda, double *vectors,double sigma,double* orders){
-    print('use FINE')
+   # print('use FINE')
     output =.C("CgpHistVarianceFine",
                result = as.double(multResult),
                numRows  = as.integer(nrow(X)),
@@ -41,7 +41,7 @@ gpHistVariance= function( GP,X,x_pred){
   }else{ ## Coarse Approximation
     #  void CgpHistVariance(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double*lambda,double* sigma, double *orders){
 
-    print('use coarse')
+    #print('use coarse')
     output =.C("CgpHistVarianceCoarse",
                result = as.double(multResult),
                mat1 = as.double(X),
