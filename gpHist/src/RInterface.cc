@@ -10,8 +10,127 @@
 #include <iostream> // For cout, cerr, endl, and flush
 #include <algorithm>
 #include <stdlib.h>
+#include <float.h>
 
 #include <pthread.h>
+
+
+void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,double*betas,double sigma);
+
+
+void strumSeq(double* alpha,int nalpha, double *beta,double lambda,double* result){
+  
+  result[0] = lambda- alpha[0];
+  result[1] = (lambda- alpha[1])*result[0] - ( (*beta) * (*beta) ) ;
+  for(unsigned int i=2;i<nalpha;++i){
+    result[i] = (lambda- alpha[i])*result[i-1] - (beta[i-1]*beta[i-1]) *result[i-2];
+  }
+}
+int calcSeqChanges(RMat& m1){
+  //first make signs..
+  double *ptr = m1.getValuesPtr();
+  int past =1;
+  int result = 0;
+  for(unsigned int i =0;i<m1.NumRows();++i){
+    if(*ptr>=0){
+      if(past==0){ // is not positive
+        ++result;      
+      }
+      past = 1;
+      //  *ptr=1;
+    }else{
+      if(past==1){ 
+        ++result;      
+      }
+      past = 0;
+    }
+    ++ptr;
+  }
+  
+  return result;
+}
+
+void getEigenSturm(double *alpha,int nalpha,double*beta,int k,double *result){
+  
+  if(k==0 || k>nalpha){
+    std::cout<<"invalid number of eigenvalues. k="<<k<<" nalpha="<< nalpha<< "\n";
+    return;
+  } 
+  //estimate bounderies
+  double bmin=DBL_MAX;
+  double bmax=-DBL_MAX;
+  
+  for(unsigned int i=0;i<nalpha;++i){
+    double g;
+    if(i == 0){
+      g = fabs(beta[i]);
+    }else if(i == nalpha-1){
+      g = fabs(beta[i-1]);
+    }else{
+      g =  fabs(beta[i-1])+fabs(beta[i]);
+    }
+    
+    double min = alpha[i] - g;
+    double max = alpha[i] + g;
+    if(min<bmin){
+      bmin = min;
+    }
+    if(max>bmax){
+      bmax = max;
+    }
+  }// end for estimate boundaries
+  
+  std::cout<<bmin<<"-"<<bmax<<std::endl;
+  // void strumSeq(double* alpha,int nalpha, double *beta,double lambda,double* result){
+  RMat seqhigh(nalpha,1);
+  strumSeq(alpha,nalpha,beta,bmax,seqhigh.getValuesPtr()  );
+ // seqhigh.Print("seqHigh\n");
+  
+  RMat seqlow(nalpha,1);
+  strumSeq(alpha,nalpha,beta,bmin,seqlow.getValuesPtr()  );
+ // seqlow.Print("seqlow\n");
+  
+  int changeslow_first = calcSeqChanges(seqlow);
+  int changeslow= changeslow_first;
+  
+  int changeshigh = calcSeqChanges(seqhigh);
+  int dif = abs(changeshigh -changeslow );
+  std::cout<<"found "<<dif<<"eigenvalues"<<std::endl;
+  
+  std::cout<<"changes high "<<changeshigh<<" chnages low "<< changeslow<<std::endl;
+  
+  for(unsigned int e=0; e<k; ++e ){
+    double lb = bmin;
+    double ub = bmax;
+    for(unsigned int w=0;w<10000; ++w){
+      double ns = (lb+ub)/2.0;
+      strumSeq(alpha,nalpha,beta,ns,seqhigh.getValuesPtr()  );
+      int tc = calcSeqChanges(seqhigh);
+      if(tc==changeslow){ //##set lower bound
+        lb= ns;
+      }else if(tc==changeshigh){
+        ub= ns;
+      }else{
+        bmax =ns;
+        lb = ns;
+        changeslow = tc;
+      }
+      
+      std::cout<<"eigenvalues in interval"<<lb<<"-"<<ub<<"\n";
+      if(fabs(lb-ub)<0.0001){
+        std::cout<<"iterations:"<<w<<"\n";
+        break;
+      }
+    }
+    result[e]= (lb+ub)/2.0;
+    std::cout<<"eigenvalues adding:"<<result[e]<<"\n";
+    changeshigh = changeslow;
+    changeslow = changeslow_first;
+    
+  }
+  
+}
+
 /*
 void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
   
@@ -50,7 +169,7 @@ void fastMultiplyBACK(const RMat& X,RMat& Y, RMat& result, RMat& orders, double 
 }*/
 
 ///// Chose of parallel or not
-#define COMPILE_PARALLEL 2 // set to 0 for parallel execution
+#define COMPILE_PARALLEL 0 // set to 0 for no parallel execution
 
 #if COMPILE_PARALLEL == 0
   
@@ -606,6 +725,7 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
     rsnew= r.SquareSum();//t(r)%*%r;
     if(sqrt(rsnew) <1e-10){
 //#  cat(c('break:', i, ' err:',sum(sqrt(rsnew)),'\n') )
+    //  std::cout<<"conjgradFP converged after "<<i<<std::endl;
       return true;
     }
     p*=(rsnew/rsold);
@@ -617,12 +737,12 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
   //std::cout<<"DIST:"<<  sqrt(rsnew)<<std::endl;
   return false;
 }
-// power method
+// power method to get larges eigenvalue and vector
 double getEigen( RMat& A,RMat &b,RMat& orders,double sigma){
   double last = 0;
   RMat res( b.NumRows(),1 );
 
-  for(unsigned int i=0;i<10000;++i){ // or give it a max iterations parameter
+  for(unsigned int i=0;i<2000;++i){ // or give it a max iterations parameter
     fastMultiply(A,b,res,orders,sigma); //A%*%b;
     double norm = sqrt(res.SquareSum()) ;
   //  res.Print();
@@ -631,12 +751,43 @@ double getEigen( RMat& A,RMat &b,RMat& orders,double sigma){
     b /= norm;
   //  b.Print();
     if(fabs(last-norm)<1e-10 ){
+      std::cout<<"converged:"<<i<<std::endl;  
         break;
     }
     last= norm;
   }
   return last;
 }
+
+//inverse iteration to get eigenvector for an eigenvalue
+void inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double sigma){
+  unsigned int N = A.NumRows();
+  result = 1.0/ double(N); // innit vector
+ // result.Print("result after init:");
+  double last = 0.0;
+  RMat tmp( N,1);
+  
+  for(unsigned int i=0;i<1000;++i){
+ //tmp = (A- I*lambda)%*%b
+    //fastMultiply(A,result,tmp,orders,sigma-lambda); //A%*%b;
+    conjgradFP( A, result, tmp , orders,sigma-lambda, 200 );
+ //   tmp.Print("tmp:");
+    double norm = sqrt(tmp.SquareSum());
+    result = tmp;
+    result /= norm;
+ //   result.Print("result:");
+    if(fabs(last-norm)<1e-10 ){
+ //   print(i);
+   //   print('conv\n')
+      std::cout<<"converged:"<<i<<std::endl;        
+        break;
+    }
+    last= norm;
+  }
+
+}
+
+
 
 // two helper functions for predictions
 double sumOrdered(RMat& alpha,RMat&orders,int start,int end,int col){
@@ -735,11 +886,12 @@ int findIdx(RMat& X,RMat& orders,double value,int col){
   return k-1;
 }*/
 
-void CppHistVariance(double* result,double numRows,double numCols,double numRows2,double numCols2,double* mat1,double* mat2,double *mat3,double lambda,double sigma,double* orders){
+// coarse approximation
+void CppHistVarianceCoarse(double* result,int numRows,int numCols,int numRows2,int numCols2,double* mat1,double* mat2,double lambda,double sigma,double* orders){
   RMat  vMatX(mat1,numRows,numCols);
   RMat  vMatPred(mat2,numRows2,numCols2);
   RMat  vMatResult(result,numRows2,1);
-  RMat  vMatAlpha(mat3,numRows,1);
+ // RMat  vMatAlpha(mat3,numRows,1); // not used remove from call
   RMat  vMatOrders(orders,numRows,numCols);
   
   for(int i=1; i<=numRows2;++i ){
@@ -771,9 +923,79 @@ void CppHistVariance(double* result,double numRows,double numCols,double numRows
  // vMatPred.RowSums().Print("rowssums") ;
   
   vMatResult = vMatPred.RowSums() -vMatResult;
-  vMatResult += sigma;
+ // vMatResult += sigma;
 
 }
+
+// finer approximation use all calculated lambdas
+void CppHistVarianceFine(double* result,int numRows,int numCols,int numRows2,int numCols2,double* X,double* pred,double *lambda,int nlambda, double *vectors,double sigma,double* orders){
+  RMat  vMatX(X,numRows,numCols);
+  RMat  vMatPred(pred,numRows2,numCols2);
+  RMat  vMatResult(result,numRows2,1);
+ // RMat  vMatAlpha(alphas,numRows,1);
+ // RMat  vMatOrders(orders,numRows,numCols); // not used...maybe use later on ?! 
+  RMat  vMatVectors(vectors,numRows,nlambda);
+  
+  RMat  k_star(numRows,1); // number of alphas 
+  
+  vMatResult =   vMatPred.RowSums(); // init this one...
+// vMatResult.Print("k_starstar");
+  for(int s=1; s<=numRows2;++s ){ // each sample to predict
+    //calc k_star
+   //k_star =  outer(1:(N), 1:nrow(x_pred), FUN =Vectorize( function(i,j) GP$kernel(X[i,],x_pred[j,],GP$weights) ) )
+    k_star.SetZero();
+    //estimate k_star
+    for(unsigned x=1;x<=numCols;++x){ // each dimension
+      double *col = vMatX.getColPtr(x);
+      double *starpointer =k_star.getValuesPtr();
+      double value =  vMatPred(s,x); // check against this value
+      
+      for(unsigned y=1;y<=numRows;++y){ // each row in X
+        
+        if(value< *col){ // value smaller X
+          *starpointer +=value;
+        }else{
+          *starpointer +=*col;
+        }
+        ++col; // next xvalue
+        ++starpointer; // next k_star value
+      }
+    }
+ 
+  //  k_star.Print("k_star");
+    double secondTerm =0;
+    double sumOfProjectionLengths = 0;
+    
+    for(unsigned int i=0; i<nlambda;++i ) {
+      RMat  vector(vMatVectors.getColPtr(i+1), numRows,1); // get eigenvector
+    //  vector.Print("eigenv:\n");
+      double projectionLength =  vector.ScalarProd( k_star) ; //
+      double projectionLength2= projectionLength*projectionLength;
+    //  std::cout<<"projectionLength:"<<projectionLength<<std::endl;
+      
+      secondTerm += ( 1.0 / lambda[i] ) *projectionLength2;
+      sumOfProjectionLengths +=  projectionLength2;
+    }
+   // std::cout<<"secondTerm:"<<secondTerm<<std::endl;
+  //  std::cout<<"sumOfProjectionLengths:"<<sumOfProjectionLengths<<std::endl;
+    
+    // k_star2 = k_star^2# %*% K
+    double k_dist = k_star.SquareSum(); 
+ //   std::cout<<"k_dist:"<<k_dist<<std::endl;
+    secondTerm += ( 1.0 / lambda[nlambda-1] ) * ( k_dist - sumOfProjectionLengths );
+    
+    if(k_dist - sumOfProjectionLengths <0){
+      std::cout<<"projection smaller zero"<<std::endl;
+    }
+    //K_starStarFast = rowSums( x_pred %*%GP$weights)
+      
+  //  std::cout<<"secondTerm:"<<secondTerm<<std::endl;
+    
+    vMatResult(s,1) -= secondTerm;
+  }// end for each sample
+  
+}
+
 
 void CppHistPredict(double *result,
                     int numRows, int numCols,int numRows2 ,int numCols2,
@@ -824,13 +1046,12 @@ void CppHistPredict(double *result,
 
 void CppHist(double *result,
                    int numRows, int numCols,int numRows2 ,int numCols2,
-                   double *mat1, double *mat2,double sigma , double *orders, double* logmarginal,double* lambda)
+                   double *mat1, double *mat2,double sigma , double *orders, double* logmarginal,double* lambda, double *vector,int k)
 {
     RMat  vMatX(mat1,numRows,numCols);
     RMat  vMatY(mat2,numRows2,numCols2);
     RMat  vMatAlphas(result,numRows,1);
     RMat  vMatOrders(orders,numRows,numCols);
-    
    
   // if(!conjgradFP(vMatX, vMatY ,vMatAlphas,vMatOrders, sigma ) ){
   //   Rprintf("conjgradFP not converged\n");
@@ -842,25 +1063,68 @@ void CppHist(double *result,
    double mu1 = numRows*sigma + vMatX.Sum();
    //std::cout<<"set mu1"  <<std::endl;
    // nedd to get larges eigenvalue
-   RMat eigenVec(numRows,1);
-   eigenVec = 1.0/(double)numRows;
+ //  RMat eigenVec(vector,numRows,1);
+   //eigenVec = 1.0/(double)numRows;
+   
   // eigenVec.Print("eigenvec");
    //eigenVec = 1.0;
    
   // std::cout<<"calc eigen"  <<std::endl;
-   double beta = getEigen(vMatX,eigenVec,vMatOrders, sigma);
+  double mu2;
+  double beta;
+  //how many eigenvalues do we need ?
+  if(k == 1){
+    std::cout<<"only one eigen value used"  <<std::endl;
+    RMat eigenVec(vector,numRows,1);
+    eigenVec = 1.0/(double)numRows;
+    beta = getEigen(vMatX,eigenVec,vMatOrders, sigma);
+    *lambda = beta; 
+    mu2 = beta *beta;
+  }else{
+    //mu2 =sum(lambdas$values[1]^2)
+ //void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,double*betas,double sigma){
+      RMat bmat(numRows,1);
+      bmat = 1.0/(double)numRows;
+      
+      RMat lalphas(k,1);
+      RMat lbetas(k-1,1);
+      
+      Cpplanczos(vMatX, bmat,vMatOrders, k,lalphas.getValuesPtr(),lbetas.getValuesPtr(), sigma); // get tri diagonal
+      
+      RMat lambdaVec(lambda,k,1);
+      //void getEigenSturm(double *alpha,int *nalpha,double*beta,int* k,double *result){
+      getEigenSturm(lalphas.getValuesPtr(), lalphas.NumRows() ,lbetas.getValuesPtr(),k,lambdaVec.getValuesPtr() );
+      beta = *lambda;
+      //std::cout<<"beta:"<<beta<<std::endl;
+      mu2 = lambdaVec.SquareSum();
+    //  std::cout<<"mu2:"<<mu2<<std::endl;
+      
+      //RMat vectorVec(lambda,numRows,k);
+      RMat eigenVec(vector,numRows,k);
+      for( unsigned int i=0;i< k ;++i ){
+        //void CinverseInteration( double* A,int* nrow,int*ncol,double *lambda,double *result,double *orders,double *sigma)
+        RMat resEigenVec( eigenVec.getColPtr(i+1), numRows,1);
+        inverseInteration(vMatX,lambda[i], resEigenVec,vMatOrders, sigma);
+        
+        //inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double sigma)
+        
+       // void inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double sigma){
+        //  CinverseInteration( double* A,int* nrow,int*ncol,double *lambda,double *result,double *orders,double *sigma)
+      }
+        
+  }
    
   // std::cout<<"eigen calced"<<beta  <<std::endl;
-   *lambda = beta;
 //   std::cout<<beta<<std::endl;
  //  std::cout<<" "<<std::endl;
  //  eigenVec.Print();
    
-   double mu2 =  beta *beta;
+// double mu2 =  beta *beta;// sum(lambdas$values[1]^2)
      
+  // calculate logmarginal   
    double t_bar = (beta*mu1 - mu2) / (beta*numRows - mu1);
    double t_bar2 = t_bar*t_bar;
-   double beta2 = beta*beta; /// CHECK THIS 
+   double beta2 = beta*beta; ///
      
    RMat t1(1,2);
    t1(1,1) =log(beta);
@@ -877,8 +1141,11 @@ void CppHist(double *result,
    t3(1,1)=mu1;
    t3(2,1)=mu2;
     
-   double logdetM =  (t1 * t2).ScalarProd(t3);
+    (t1 * t2).Print("t1*t2\n");
+    t3.Print("t3\n");
+   //double logdetM =  (t1 * t2).ScalarProd(t3);
    
+   double logdetM =  *(((t1 * t2)*t3).getValuesPtr());
   // std::cout<<"logdet:"<<logdetM<<std::endl;
    
    *logmarginal= 0.5*vMatAlphas.ScalarProd(vMatY)+ logdetM/2.0 + (numRows/2.0)*log(2.0*PI);
@@ -919,7 +1186,7 @@ void chkBound(RMat& params,double* lower, double* upper){
   
 }
 // do just all stuff in c
-double dummy2(RMat& X,RMat& Y,RMat& params,RMat &orders, RMat &result,RMat& X_trans){
+/*double dummy2(RMat& X,RMat& Y,RMat& params,RMat &orders, RMat &result,RMat& X_trans){
   
   double lambda;
   double logmarginal;
@@ -946,9 +1213,9 @@ double dummy2(RMat& X,RMat& Y,RMat& params,RMat &orders, RMat &result,RMat& X_tr
   
   return(logmarginal);  
   
-}
+}*/
 
-
+// this function calls the R transform function
 double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
  
   //double
@@ -970,8 +1237,31 @@ double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
   return ret ;
 }
 
+//lanczos implementation, think about full reorthogornalisation......
+void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,double*betas,double sigma){
+ 
+  RMat v =  bmat / sqrt(bmat.SquareSum() );
+  RMat v_prev(Xmat.NumRows(),1); // chnages htis
+
+  RMat w(Xmat.NumRows(),1);
+  for(unsigned i = 0;i<k-1;++i){
+    fastMultiply( Xmat,v, w,vMatOrders, sigma);
+    alphas[i] = w.ScalarProd(v);
+    w -= alphas[i]*v;
+    if(i>0){
+      w -= betas[i-1]*v_prev;
+    }
+    v_prev = v;
+    betas[i] =  sqrt(w.SquareSum());
+    v= w;
+    v/=betas[i];
+  }
+  fastMultiply( Xmat,v, w,vMatOrders, sigma);
+  alphas[k-1] = w.ScalarProd(v);
+}
+
 extern "C" {
-    void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda){
+    void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda,double* vector,int*k){
     //  std::cout<<"CgpHist"  <<std::endl;
      #if COMPILE_PARALLEL == 2
        if(threads==NULL){
@@ -983,7 +1273,7 @@ extern "C" {
          return;
        } 
      #endif
-      CppHist(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*sigma,orders,logmarginal,lambda);
+      CppHist(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*sigma,orders,logmarginal,lambda, vector,*k);
     }
 
   void CgpHistPredict(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double *orders){
@@ -991,11 +1281,39 @@ extern "C" {
     CppHistPredict(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,mat3,orders);
   }
   
-  void CgpHistVariance(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double*lambda,double* sigma, double *orders){
-//    std::cout<<"CgpHistVariance"  <<std::endl;
-    CppHistVariance(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,mat3,*lambda,*sigma,orders);
+// predict variance. coarse and fine are supported
+  void CgpHistVarianceCoarse(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double*lambda,double* sigma, double *orders){
+    CppHistVarianceCoarse(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*lambda,*sigma,orders);
   }
+  void CgpHistVarianceFine(double* result,int *numRows,int *numCols,int *numRows2,int *numCols2,double* X,double* pred,double *lambda,int *nlambda, double *vectors,double *sigma,double* orders){
+    CppHistVarianceFine(result,*numRows,*numCols,*numRows2,*numCols2,X,pred,lambda, *nlambda,vectors,*sigma,orders);
+  }
+    
 
+  // for debugging, set up matrices and call lanczos....
+  void Clanczos(double *X, int *nrow,int *ncol, double *b, int* k,double*alphas,double*betas,double* orders,double *sigma){
+    RMat Xmat(X,*nrow,*ncol);
+    RMat bmat(b,*nrow,1);
+    RMat vMatOrders(orders,*nrow,*ncol);
+    Cpplanczos(Xmat, bmat,vMatOrders, *k,alphas,betas,*sigma);
+  }
+  
+  //wrapper for debuggin. call eigen sturm
+  void CgetEigenSturm(double *alpha,int *nalpha,double*beta,int* k,double *result){
+    getEigenSturm(alpha,*nalpha,beta,*k,result);
+  }
+  
+  //wrapper for debugging.. call inverse iteration
+  void CinverseInteration( double* A,int* nrow,int*ncol,double *lambda,double *result,double *orders,double *sigma){
+    RMat vMatA(A,*nrow,*ncol);
+    RMat vMatorders(orders,*nrow,*ncol);
+    RMat vMatResult(result,*nrow,1);
+    
+    inverseInteration( vMatA,*lambda,vMatResult, vMatorders,*sigma);
+  }
+ 
+ 
+  // downhill simplex with boundery check for estimation of hyperparameters
   void Cdownhillsimplex(SEXP func,SEXP sys,int* nParams,double* bp,double* lower,double* upper,int *resPtr, double *alpha,double *gamma,double *beta,double *sigma,unsigned int *it,double *tol){
     SEXP arg;
     SEXP environment;
@@ -1187,6 +1505,7 @@ extern "C" {
   }
 
   
+  /*
   ////////// downhill all in c will be deleted....
 void CdownhillsimplexIN(int* nParams,double* bp,double* lower,double* upper,int *resPtr, double *alpha,double *gamma,double *beta,double *sigma,unsigned int *it,double *tol, double *X, double *Y,double *orders,double *nrow, double *ncol){
 
@@ -1353,7 +1672,7 @@ void CdownhillsimplexIN(int* nParams,double* bp,double* lower,double* upper,int 
   *resPtr =vMatValues(2,1) ;
   
 }
-  
+  */
   ///////////// will be deleted
   
 #if COMPILE_PARALLEL == 2

@@ -203,7 +203,10 @@ double RMat::ScalarProd(const RMat &vRhs){
 //  assert(mNumCols==vRhs.mNumRows); // altough I could skip this check and abuse this function
 //  assert(mNumRows==vRhs.mNumCols);
 //  assert(mNumRows==1 && vRhs.mNumCols==1);
-  
+  if (mNumCols!= vRhs.mNumCols || mNumRows!= vRhs.mNumRows){
+    cerr << "Rmat::ScalarProd: matrices have not the same dimension!" << endl;
+    return (double &) mNaN;
+  }
   double result=0;
   for ( int i=0; i<mNumRows*mNumCols; ++i){
     result+= mValues[i]*vRhs.mValues[i]; 
@@ -231,6 +234,10 @@ RMat::SquareSum(){// or call this square norm, could also call ScalarProd
 
 // THIS IS a hack
 double* RMat::getColPtr( int col ){
+  if ( col<1 || col>mNumCols){
+    cerr << "Rmat::getColPtr: range error!" << endl;
+    return NULL;
+  }
   return &mValues[ (col-1)*mNumRows];
 }
 

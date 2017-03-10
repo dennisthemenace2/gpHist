@@ -21,7 +21,6 @@ gpHistPredict =function(GP,X,x_pred){
   }
   nsamples = nrow(x_pred)
   multResult = matrix(rep(0,nsamples),nrow=nsamples,ncol=1)
-   
   
   output =.C("CgpHistPredict",
              result = as.double(multResult),

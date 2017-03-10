@@ -2,7 +2,12 @@
 
 ##make sure datatransform function does preserves orders of X's, this way the order has only be computed once.
 estimateHyperParameters=function(X, Y, paramLower=0,paramUpper=1,datatransform=NULL,nParams=0,it = 100,tol=0.001){
-
+  # Make sure A and B are matrices.
+  if ( ( ! is.matrix(X) ) || ( ! is.matrix(Y) ) ) {
+    print("estimateHyperParameters(): input X and Y must be matrices!")
+    return(NaN);
+  }
+  
   GP = NULL  
   dhfc = function(p){
     P = length(p)
@@ -31,6 +36,36 @@ estimateHyperParameters=function(X, Y, paramLower=0,paramUpper=1,datatransform=N
   
 }
 
+lanczos = function(X){
+  
+  #void lanczos(double *X, int *nrow,int *ncol, double *b, int* k,double*alphas,double*betas,double* orders,double *sigma){
+  
+  k= 3
+  b = matrix(runif(k,0.001,1) ,nrow=k,ncol=1)
+  alphas = matrix(0 ,nrow=k,ncol=1)
+  betas = matrix(0 ,nrow=k-1,ncol=1)
+  X = matrix(1:3)
+  orders = X
+  b= X
+sigma = 1
+  
+  output =.C("Clanczos",
+             mat1 = as.double(X),
+             numRows  = as.integer(nrow(X)),
+             numCols  = as.integer(ncol(X)),
+             b = as.double(b),
+             k = as.integer(k),
+             alphas = as.double(alphas),
+             betas = as.double(betas),
+             orders = as.double(orders),
+             sigma = as.double(sigma))
+  
+#  > lanczosKERN(X,X,orders ,1,1)
+#  [,1]       [,2]       [,3]
+#  [1,] 6.00000 0.46291005 0.00000000
+#  [2,] 0.46291 1.66666667 0.08908708
+#  [3,] 0.00000 0.08908708 1.33333333
+}
 
 estimateHyperParametersZZZ=function(X, Y, paramLower=0,paramUpper=1,shift =100,it = 100,tol=0.001){
   # Make sure GP is right.
