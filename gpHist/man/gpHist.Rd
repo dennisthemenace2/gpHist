@@ -2,56 +2,100 @@
 \alias{gpHist}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-Example function
+gpHist function
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+
+This function is used to estimate the Gaussian Process regression
 }
 \usage{
-gpHist(X, Y,...)
+gpHist(X,Y,sigma,orders=NULL,alphas = NULL,k=1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{X}{
-%%     ~~Describe \code{X} here~~
+	Matrix of X values. Make sure that this is a matrix in the right dimension. It should be a NxD matrix. So that each row is one example of D dimensions.
 }
   \item{Y}{
-%%     ~~Describe \code{Y} here~~
+	Matrix of Y values. Make sure that this is a matrix in the right dimension. Should be a 1xN matrix.
+}
+
+\item{sigma}{
+	Noise in the data.	
+}
+
+\item{orders}{
+	If the correct orders of the samples in each dimension is already known, this can be used to avoid sorting of each dimension. If not set, order will be created and returned.
+}
+
+ \item{alphas}{
+ With this parameters the initial value of the alphas can be set. If not set, a random vector will be used. By setting the alpha vector the convergence can potentially be speed up.
+}
+ \item{k}{
+ The number of estimated eigenvalues and eigenvectors. This effects the approximation of the log-likelyhood and the predicted variance. It has no influence on the prediction of the mean of new sample values.
+Estimation of eigenvectors scales quadratically, so be awere of this additional runtime.
 }
 }
 \details{
-%%  ~~ If necessary, more details than the description above ~~
+	This function will estimate the Gaussian process with HIK kernen using conjugate gradient descent and return all required estimates as lists.
+If only one eigenvector is estimated the power method will be used. For multible eigenvectors, Lanczos algorihm is applied. The eigenvalues will be bounded using sturm sequences and then estimatied using inverse iteration, wich also makes use of the conjugate gradient descent. Estimated time of multible eigenvectors greatly varies.
 }
 \value{
-%%  ~Describe the value returned
-%%  If it is a LIST, use
-%%  \item{comp1 }{Description of 'comp1'}
-%%  \item{comp2 }{Description of 'comp2'}
-%% ...
+If the functions fails or wrong parameters are provided NAN is returned.
+
+
+%% list('logmarginal'=output$logmarginal,'orders'=orders,'alpha'=matrix(output$result,nrow=nrowA),'sigma'=sigma,'lambda'=output$lambda,'vectors'=matrix(output$vector,nrow=nrow(X), ncol=k))
+
+Return value of the function is a List with following items:
+\item{logmarginal }{Approximated log-likelihood of the GP}
+\item{orders }{Matrix that describes the ordering of each dimension}
+\item{alpha }{Estimatied alpha vector. alpha = K_xx^-1 y}
+\item{lambda }{Esimated eigenvalues}
+\item{vectors }{Estimated eigenvectors}
+
 }
 \references{
 %% ~put references to the literature/web site here ~
 }
 \author{
-%%  ~~who you are~~
+Dennis Becker
 }
 \note{
-%%  ~~further notes~~
+You need to keep the X data that you used for training because it is not saved within the returned GP object.
+ In the future more parameters will be added to controll the internals of the function.
+
 }
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 
 \seealso{
-%% ~~objects to See Also as \code{\link{help}}, ~~~
+Package Overview:
+\code{\link[gpHist:gpHist-package]{gpHist-Package}}
+
+Function for prediction of new samples: 
+\code{\link[gpHist:gpHistPredict]{gpHistPredict}}
+
+Function for prediction of new sample variance:
+\code{\link[gpHist:gpHistVariance]{gpHistVariance}}
+
+Function for hyperparameter estimation:
+\code{\link[gpHist:estimateHyperParameters]{estimateHyperParameters}}
+
 }
 \examples{
-##---- Should be DIRECTLY executable !! ----
-##-- ==>  Define data, use random,
-##--	or do  help(data=index)  for the standard data sets.
 
-## The function is currently defined as
+require('gpHist')
 
-% Add one or more standard keywords, see file 'KEYWORDS' in the
-% R documentation directory.
-\keyword{ ~kwd1 }
-\keyword{ ~kwd2 }% __ONLY ONE__ keyword per line
+
+testFn = function(x){
+  y = sin(2*pi*x*2) 
+}
+
+#Get data
+X = seq(0,1,0.01)
+Y = testFn(X)
+
+#Call gpHist function
+gp_hist = gpHist(matrix(X),matrix(Y),sigma=0.01)
+}
+

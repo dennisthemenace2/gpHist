@@ -2,59 +2,81 @@
 \alias{gpHistPredict}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-  Example function
+gpHistPredict Function
 }
 \description{
-  %%  ~~ A concise (1-5 lines) description of what the function does. ~~
+
+This function is used to predict new sample means. For prediction of the variance the function gpHistVariance is used. This has been done intentially, to provide the chance not to predict the variance if it is not required. Also keep in mind, that you need the data that you used for training of GP to make predictions.
+
 }
 \usage{
-  gpHistPredict(X, Y,...)
+  gpHistPredict(GP, X,x_pred)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
+  \item{GP}{
+	Gaussian Process object returned by gpHist function
+  }
   \item{X}{
-    %%     ~~Describe \code{X} here~~
+    Original data that has been used for the training of the GP process.
   }
-  \item{Y}{
-    %%     ~~Describe \code{Y} here~~
+
+  \item{x_pred}{
+    New data that is to  be predicted
   }
+
+
 }
 \details{
-  %%  ~~ If necessary, more details than the description above ~~
+  X and x_pred need to be matrix in correct format. Each row is one example of D dimensions.
 }
 \value{
-  %%  ~Describe the value returned
-  %%  If it is a LIST, use
-  %%  \item{comp1 }{Description of 'comp1'}
-  %%  \item{comp2 }{Description of 'comp2'}
-  %% ...
+If the function fails or spotts an error in the parameters NAN is returned. Otherwise the predicted sample mean is returned.
 }
 
-
-\references{
-  %% ~put references to the literature/web site here ~
-}
-\author{
-  %%  ~~who you are~~
-}
-\note{
-  %%  ~~further notes~~
-}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
   
   \seealso{
-    %% ~~objects to See Also as \code{\link{help}}, ~~~
+ Package Overview:
+\code{\link[gpHist:gpHist-package]{gpHist-Package}}
+
+Function for estimation of the GP: 
+\code{\link[gpHist:gpHist]{gpHist}}
+
+Function for prediction of new sample variance:
+\code{\link[gpHist:gpHistVariance]{gpHistVariance}}
+
+Function for hyperparameter estimation:
+\code{\link[gpHist:estimateHyperParameters]{estimateHyperParameters}}
+
+
   }
 \examples{
-  ##---- Should be DIRECTLY executable !! ----
-  ##-- ==>  Define data, use random,
-  ##--	or do  help(data=index)  for the standard data sets.
-  
-  ## The function is currently defined as
-  
-  % Add one or more standard keywords, see file 'KEYWORDS' in the
-  % R documentation directory.
-  \keyword{ ~kwd1 }
-  \keyword{ ~kwd2 }% __ONLY ONE__ keyword per line
-  
+
+testFn = function(x){
+  y = sin(2*pi*x*2) 
+}
+
+#Get data
+X = seq(0,1,0.1)
+Y = testFn(X)
+
+#Call gpHist function
+gp_hist = gpHist(matrix(X),matrix(Y),sigma=0.01)
+
+# New data to predict
+x_pred = matrix(seq(0,1,0.01))
+
+#Prediction
+prediction = gpHistPredict(gp_hist,matrix( X), x_pred)
+
+# Plot results
+plot(X,Y)
+lines(x_pred, prediction,col='red')
+
+legend('topleft',legend=c('Data', 'Approximation'), col=c('black','red') ,lty=c(NA,1),pch=c(1,NA))
+
+}
+
+
