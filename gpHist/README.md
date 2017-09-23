@@ -1,20 +1,3 @@
----
-output:
-  github_document:
-    html_preview: false
----
-
-```{r, echo = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "README-"
-)
-options(tibble.print_min = 5, tibble.print_max = 5)
-```
-
-# dplyr <img src="man/figures/logo.png" align="right" />
-
 ## Overview
 
 

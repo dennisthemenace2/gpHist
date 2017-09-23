@@ -1,0 +1,10 @@
+Package: gpHist
+Type: Package
+Title: Gaussian Process with HIK
+Version: 0.1
+Date: 2017-09-21
+Author: Dennis Becker
+Maintainer: Dennis Becker <dbecker@leuphana.de>
+Description: This package implements a Gaussian process regression with a histogram intersection kernel and utilises approximations.
+License:  GPL (>= 2)
+LazyLoad: yes
