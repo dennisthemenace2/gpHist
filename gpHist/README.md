@@ -23,6 +23,33 @@ If you encounter a clear bug, please file a minimal reproducible example.
 ```{r, message = FALSE}
 library(gpHist)
 
+#define a function
+testFn = function(x){
+  y = sin(2*pi*x*2) 
+}
+
+#Get data
+X = seq(0,1,0.1)
+Y = testFn(X)
+
+#Call gpHist function
+gp_hist = gpHist(matrix(X),matrix(Y),sigma=0.01)
+
+
+x_pred = matrix(seq(0,1,0.01))
+
+prediction = gpHistPredict(gp_hist,matrix( X), x_pred)
+
+vars = gpHistVariance(gp_hist,matrix( X), x_pred)
+
+plot(X,Y)
+lines(x_pred, prediction,col='red')
+
+lines(x_pred, prediction+sqrt(vars),lty=2,col='red')
+lines(x_pred, prediction-sqrt(vars),lty=2,col='red')
+
+legend('topleft',legend=c('Data', 'Approximation','Coarse std. dev'), col=c('black','red','red') ,lty=c(NA,1,2),pch=c(1,NA,NA))
+
 
 ```
 
