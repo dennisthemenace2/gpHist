@@ -8,7 +8,8 @@
  This function can be used to estimate the hyperparameters of the GP Hist. THe function provides to set bounds on the parameters and the specification of a data transformation function. The data transformation function can be used to make use of the generalized HIK. Where this function provided the g() function that transforms the data. 
 }
 \usage{
-estimateHyperParameters(X, Y, paramLower=0,paramUpper=1,datatransform=NULL,nParams=0,it = 100,tol=0.001,k=1)
+estimateHyperParameters(X, Y, paramLower=0,paramUpper=1,datatransform=NULL,
+nParams=0,it = 100,tol=0.001,k=1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -58,9 +59,9 @@ First item will be the estimated sigma value. The other paramters will be the on
 }
 
 
-\references{
+%%\references{
   %% ~put references to the literature/web site here ~
-}
+%%}
 \author{
   Dennis Becker
 }
@@ -89,7 +90,8 @@ transform= function(X,p){
 }
 
 ##estimate hyperparameters
-res = estimateHyperParameters(matrix(X),matrix(Y),paramLower = c(0.001,0.0001),paramUpper = c(0.01,1),datatransform = transform,nParams = 1)
+res = estimateHyperParameters(matrix(X),matrix(Y),paramLower = c(0.001,0.0001),
+paramUpper = c(0.01,1),datatransform = transform,nParams = 1)
 
 ##data need to be trannsformed for the training
 X_trans = matrix(transform(X,res[2] ) )
@@ -106,7 +108,8 @@ plot(X,Y)
 lines(x_pred, prediction,col='red')
 
 
-legend('topleft',legend=c('Data', 'Approximation'), col=c('black','red') ,lty=c(NA,1),pch=c(1,NA))
+legend('topleft',legend=c('Data', 'Approximation'), col=c('black','red'),
+lty=c(NA,1),pch=c(1,NA))
 
 }
 %% ~Make other sections like Warning with \section{Warning }{....} ~

@@ -5,12 +5,12 @@
   gpHistVariance Function
 }
 \description{
-  This function is used to predict (approximate) the variance of new sample from a trained GP.
+  This function is used to estimate (approximate) the variance of new sample from a trained GP.
 }
 \usage{
 gpHistVariance( GP,X,x_pred)
 }
-%- maybe also 'usage' for other objects documented here.
+
 \arguments{
   \item{GP}{
     Gaussian Process object that has been trained with gpHist
@@ -23,7 +23,7 @@ gpHistVariance( GP,X,x_pred)
   }
 }
 \details{
-  Based on the number of estimaited eigenvalues/eigenvetors, the variance is approximated. When only 1 eigenvalue is used, the so called coarse approximation is used. If more eigenvectors are present, the so called fine approximation is used. For deatils look in to paper of refrenced under references
+Based on the number of estimaited eigenvalues/eigenvetors, the variance is approximated. When only 1 eigenvalue is used, the so called coarse approximation is used. If more eigenvectors are present, the so called fine approximation is used. For deatils look in to paper of refrenced under references
 }
 \value{
  Will return NAN on error or the estimated approximaited variances of the samples
@@ -34,7 +34,8 @@ gpHistVariance( GP,X,x_pred)
 \references{
 The utilized approximations are described in the following paper:
 
-Rodner, E., Freytag, A., Bodesheim, P., Fröhlich, B., & Denzler, J. (2016). Large-Scale Gaussian Process Inference with Generalized Histogram Intersection Kernels for Visual Recognition Tasks. International Journal of Computer Vision, pp. 1–28. Springer US. doi:10.1007/s11263-016-0929-y
+Rodner, E., Freytag, A., Bodesheim, P., Froehlich, B., & Denzler, J. (2016). Large-Scale Gaussian Process Inference with Generalized Histogram Intersection Kernels for Visual Recognition Tasks. International Journal of Computer Vision, pp. 1-28. Springer US. doi:10.1007/s11263-016-0929-y
+
 }
 \author{
   Dennis Becker
@@ -88,6 +89,7 @@ lines(x_pred, prediction,col='red')
 lines(x_pred, prediction+sqrt(vars),lty=2,col='red')
 lines(x_pred, prediction-sqrt(vars),lty=2,col='red')
 
-legend('topleft',legend=c('Data', 'Approximation','Coarse std. dev'), col=c('black','red','red') ,lty=c(NA,1,2),pch=c(1,NA,NA))
+legend('topleft',legend=c('Data', 'Approximation','Coarse std. dev'),
+col=c('black','red','red') ,lty=c(NA,1,2),pch=c(1,NA,NA))
 
 }

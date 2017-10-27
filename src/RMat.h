@@ -66,8 +66,8 @@ public:
     RMat Transpose();                 // Transpose
      int NumRows() const;              // Returns number of rows.
      int NumCols() const;              // Returns number of columns.
-    void Print();                     // Print matrix to stdout
-    void Print(const char *vString);  // Print matrix to stdout with string.
+  //  void Print();                     // Print matrix to stdout
+//    void Print(const char *vString);  // Print matrix to stdout with string.
 #if COMPILE_WITH_R
     void RPrint();                    // Print matrix to R console.
     void RPrint(const char *vString); // Print matrix to R console with string.

@@ -3,11 +3,7 @@
 \alias{gpHist}
 \docType{package}
 \title{
-
-Gaussian process with histogram intersection kernel.
-
-
-
+Gaussian process with histogram intersection kernel
 }
 \description{
 This package provide an implementation of a Gaussian process regression using a histogram intersection kernel an utilizes approximations for the approximation of the log-likelihood and variance prediction.
@@ -40,7 +36,8 @@ Maintainer: Dennis Becker <dbecker@leuphana.de>
 \references{
 The utilized approximations are described in the following paper:
 
-Rodner, E., Freytag, A., Bodesheim, P., Fröhlich, B., & Denzler, J. (2016). Large-Scale Gaussian Process Inference with Generalized Histogram Intersection Kernels for Visual Recognition Tasks. International Journal of Computer Vision, pp. 1–28. Springer US. doi:10.1007/s11263-016-0929-y
+Rodner, E., Freytag, A., Bodesheim, P., Froehlich, B., & Denzler, J. (2016). Large-Scale Gaussian Process Inference with Generalized Histogram Intersection Kernels for Visual Recognition Tasks. International Journal of Computer Vision, pp. 1-28. Springer US. doi:10.1007/s11263-016-0929-y
+
 
 }
 \keyword{ package }

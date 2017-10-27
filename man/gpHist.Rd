@@ -54,9 +54,7 @@ Return value of the function is a List with following items:
 \item{vectors }{Estimated eigenvectors}
 
 }
-\references{
-%% ~put references to the literature/web site here ~
-}
+
 \author{
 Dennis Becker
 }

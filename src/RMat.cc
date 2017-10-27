@@ -46,18 +46,12 @@ mNumCols(0), mNaN(std::numeric_limits<double>::quiet_NaN())
   AllocateMemory(vRhs.NumRows(),vRhs.NumCols());
   
   memcpy(mValues,vRhs.mValues,mNumRows*mNumCols*sizeof(double));
-  
-//  for ( int i=0; i<mNumRows*mNumCols; i++){
-//    mValues[i] = vRhs.mValues[i];
-//  }
-
 }
 
 //- Destructor
 //
-RMat::~RMat()
-{
-    DeallocateMemory();
+RMat::~RMat(){
+  DeallocateMemory();
 }
 
 void RMat::SetZero(){
@@ -67,12 +61,9 @@ void RMat::SetZero(){
 }
 //- Assignment operator #1
 //
-RMat&
-RMat::operator= (const RMat &vRhs)
-{
+RMat& RMat::operator= (const RMat &vRhs){
  
     if(mNumCols != vRhs.mNumCols || mNumRows!=vRhs.mNumRows){
-      cout << "DeallocateMemory\n";
       DeallocateMemory();
       AllocateMemory(vRhs.NumRows(),vRhs.NumCols());
     }
@@ -84,20 +75,15 @@ RMat::operator= (const RMat &vRhs)
 
 //- Assignment operator #2
 //
-RMat&
-RMat::operator= (double vValue)
-{
+RMat& RMat::operator= (double vValue){
     for (int i=0; i<mNumRows*mNumCols; i++){
         mValues[i] = vValue;
     }
-    //memset( mValues,vValue,mNumCols*mNumRows*sizeof(double) );
     return (*this);
 }
 
 
-RMat&
-RMat::operator-= (const RMat &vRhs)
-{
+RMat& RMat::operator-= (const RMat &vRhs){
   assert(mNumCols==vRhs.mNumCols);
   assert(mNumRows==vRhs.mNumRows);
     
@@ -110,9 +96,7 @@ RMat::operator-= (const RMat &vRhs)
 //- Subtraction operator
 //
 
-RMat
-RMat::operator- (const RMat &vRhs)
-{
+RMat RMat::operator- (const RMat &vRhs){
   assert(mNumCols==vRhs.mNumCols);
   assert(mNumRows==vRhs.mNumRows);
   
@@ -123,9 +107,7 @@ RMat::operator- (const RMat &vRhs)
   return vProduct;
 }
 
-RMat
-RMat::operator/ (const double vRhs)
-{
+RMat RMat::operator/ (const double vRhs){
   RMat vProduct(mNumRows,mNumCols);
   for (unsigned int i=0; i<mNumRows*mNumCols; i++){
     vProduct.mValues[i] = mValues[i] / vRhs;
@@ -134,9 +116,7 @@ RMat::operator/ (const double vRhs)
 }
 
 //Add
-RMat
-  RMat::operator+ (const RMat &vRhs)
-  {
+RMat RMat::operator+ (const RMat &vRhs){
     assert(mNumCols==vRhs.mNumCols);
     assert(mNumRows==vRhs.mNumRows);
     
@@ -147,9 +127,7 @@ RMat
     return vProduct;
   }
 
-RMat&
-RMat::operator+= (const double vRhs)
-{
+RMat& RMat::operator+= (const double vRhs){
   for (unsigned int i=0; i<mNumRows*mNumCols; i++){
     mValues[i] +=  vRhs;
   }
@@ -157,9 +135,7 @@ RMat::operator+= (const double vRhs)
   return (*this);
 }
 
-RMat&
-RMat::operator*= (const double vRhs)
-{
+RMat& RMat::operator*= (const double vRhs){
   for (unsigned int i=0; i<mNumRows*mNumCols; i++){
     mValues[i] *=  vRhs;
   }
@@ -167,9 +143,7 @@ RMat::operator*= (const double vRhs)
   return (*this);
 }
 
-RMat&
-RMat::operator/= (const double vRhs)
-{
+RMat& RMat::operator/= (const double vRhs){
   for (unsigned int i=0; i<mNumRows*mNumCols; i++){
     mValues[i] /=  vRhs;
   }
@@ -177,9 +151,7 @@ RMat::operator/= (const double vRhs)
   return (*this);
 }
 
-RMat&
-  RMat::operator+= (const RMat &vRhs)
-  {
+RMat& RMat::operator+= (const RMat &vRhs){
     assert(mNumCols==vRhs.mNumCols);
     assert(mNumRows==vRhs.mNumRows);
     
@@ -187,10 +159,9 @@ RMat&
       mValues[i] += vRhs.mValues[i];
     }
     return (*this);
-  }
+}
 
-double 
-RMat::Sum(){
+double RMat::Sum(){
     double result=0;
     for ( int i=0; i<mNumRows*mNumCols; ++i){
       result+= mValues[i]; 
@@ -200,11 +171,10 @@ RMat::Sum(){
 
 
 double RMat::ScalarProd(const RMat &vRhs){
-//  assert(mNumCols==vRhs.mNumRows); // altough I could skip this check and abuse this function
-//  assert(mNumRows==vRhs.mNumCols);
-//  assert(mNumRows==1 && vRhs.mNumCols==1);
+
   if (mNumCols!= vRhs.mNumCols || mNumRows!= vRhs.mNumRows){
-    cerr << "Rmat::ScalarProd: matrices have not the same dimension!" << endl;
+   // cerr << "Rmat::ScalarProd: matrices have not the same dimension!" << endl;
+    Rprintf("Rmat::ScalarProd: matrices have not the same dimension!\n");
     return (double &) mNaN;
   }
   double result=0;
@@ -212,18 +182,10 @@ double RMat::ScalarProd(const RMat &vRhs){
     result+= mValues[i]*vRhs.mValues[i]; 
   }
   
-  //double result=0;
-  //for ( int i=1; i<=vRhs.mNumCols; ++i){
-  //  double* row = vRhs.getColPtr(i);
-  //  for ( int k=0; k<vRhs.mNumRows; ++k){
-    //  result+= mValues[k]*row[k]; 
-   // }
-  //}
   return result;
 }
 
-double 
-RMat::SquareSum(){// or call this square norm, could also call ScalarProd
+double RMat::SquareSum(){// or call this square norm, could also call ScalarProd
   double result=0;
   for ( int i=0; i<mNumRows*mNumCols; ++i){
     result+= mValues[i]*mValues[i]; 
@@ -235,7 +197,8 @@ RMat::SquareSum(){// or call this square norm, could also call ScalarProd
 // THIS IS a hack
 double* RMat::getColPtr( int col ){
   if ( col<1 || col>mNumCols){
-    cerr << "Rmat::getColPtr: range error!" << endl;
+    //cerr << "Rmat::getColPtr: range error!" << endl;
+    Rprintf("Rmat::getColPtr: range error!\n");
     return NULL;
   }
   return &mValues[ (col-1)*mNumRows];
@@ -304,22 +267,16 @@ RMat RMat::ColSums(){
 
 RMat RMat::RowSums(){
   RMat vProduct(mNumRows,1);
- /* for(int i=0;i<mNumRows;++i){
-    for(int j=0;j<mNumCols;++j){
+
+  for(int j=0;j<mNumCols;++j){
+    for(int i=0;i<mNumRows;++i){
       vProduct.mValues[i] += mValues[ (j)*mNumRows+(i)];
     }
- }*/
- for(int j=0;j<mNumCols;++j){
-  for(int i=0;i<mNumRows;++i){
-     vProduct.mValues[i] += mValues[ (j)*mNumRows+(i)];
-   }
- }
+  }
   return vProduct;
 }
 
-RMat
-RMat::operator* (const double vRhs)
-{
+RMat RMat::operator* (const double vRhs){
     
   RMat vProduct(mNumRows,mNumCols);
   for ( int i=0; i<mNumRows*mNumCols; i++){
@@ -338,8 +295,9 @@ RMat::operator()( int x, int y) const
     if ( ( x < 1 ) || ( x > mNumRows )
       || ( y < 1 ) || ( y > mNumCols ) )
     {
-         cerr << "Rmat::operator(): range error!" << endl;
-         return (double &) mNaN;
+        // cerr << "Rmat::operator(): range error!" << endl;
+        Rprintf("Rmat::operator(): range error!");
+        return (double &) mNaN;
     }
     
     //- Offset is ((y-1)*mNumRows)+(x-1)
@@ -355,8 +313,7 @@ RMat::operator()( int x, int y) const
 
 //- Transpose
 //
-RMat
-RMat::Transpose() // this should be slow...
+RMat RMat::Transpose() // this should be slow...
 {
     RMat vTranspose(mNumCols,mNumRows);
     for (int i=1; i<=mNumRows; i++)
@@ -369,36 +326,11 @@ RMat::Transpose() // this should be slow...
     return vTranspose;
 }
 
-//- Print #1
-//
-void
-RMat::Print()
-{
-    for ( int i=1; i<=mNumRows; i++)
-    {
-        for ( int j=1; j<=mNumCols; j++)
-        {
-            cout << (*this)(i,j) << "  ";
-        }
-        cout << endl;
-    }
-}
-
-//- Print #2
-//
-void
-RMat::Print(const char *vString)
-{
-    cout << vString;
-    Print();
-}
 
 #if COMPILE_WITH_R
 //- RPrint #1
 //
-void
-RMat::RPrint()
-{
+void RMat::RPrint(){
     for ( int i=1; i<=mNumRows; i++)
     {
         for ( int j=1; j<=mNumCols; j++)
@@ -413,9 +345,7 @@ RMat::RPrint()
 
 //- RPrint #2
 //
-void
-RMat::RPrint(const char *vString)
-{
+void RMat::RPrint(const char *vString){
     Rprintf("%s",vString);
     RPrint();
 }
@@ -423,33 +353,29 @@ RMat::RPrint(const char *vString)
 
 //- Get number of rows
 //
-int
-RMat::NumRows() const
-{
+int RMat::NumRows() const{
     return mNumRows;
 }
 
 //- Get number of columns
 //
-int
-RMat::NumCols() const
-{
+int RMat::NumCols() const {
     return mNumCols;
 }
 
 //- Allocate memory
 //  Initialize all entries to 0.
 //
-bool             
-RMat::AllocateMemory( int x, int y)
+bool RMat::AllocateMemory( int x, int y)
 {
     DeallocateMemory();
     try {
         mValues  = new double [x*y];
     }
     catch (...) {
-        cerr << "Rmat::AllocateMemory(): unable to allocate memory for "
-             << x << " by " << y << " matrix!" << endl;
+        /*cerr << "Rmat::AllocateMemory(): unable to allocate memory for "
+               << x << " by " << y << " matrix!" << endl;*/
+        Rprintf("Rmat::AllocateMemory(): unable to allocate memory\n");
         return false;
     }
 
@@ -457,22 +383,13 @@ RMat::AllocateMemory( int x, int y)
     mNumCols = y;
     allocated=true;
     SetZero(); // do i realy need to zero this ?
-  /*  for ( int i=1; i<=mNumRows; i++)
-    {
-        for ( int j=1; j<=mNumCols; j++)
-        {
-            (*this)(i,j) = 0.0;
-        }
-    }*/
   
     return true;
 }
 
 //- Deallocate memory
 //
-void             
-RMat::DeallocateMemory()
-{
+void RMat::DeallocateMemory(){
     if ( mValues != 0 && allocated){ // make sure we dont delete R's memory
         delete [] mValues;
         mValues = 0;

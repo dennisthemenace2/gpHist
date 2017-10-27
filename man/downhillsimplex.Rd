@@ -9,7 +9,8 @@
 }
 \usage{
 
-downhillsimplex(fc,nParams,bp=NULL,lower=0,upper=1,it=1000,tol=1e-10,control= list(alpha=1,gamma=2, beta=0.5,sigma = 0.5) )
+downhillsimplex(fc,nParams,bp=NULL,lower=0,upper=1,it=1000,tol=1e-10,
+control= list(alpha=1,gamma=2, beta=0.5,sigma = 0.5) )
   
 }
 %- maybe also 'usage' for other objects documented here.
@@ -64,10 +65,10 @@ Implementation according to describtion on wiki:
 https://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method
 }
 \author{
-  %%  ~~who you are~~
+    Dennis Becker
 }
 \note{
-  %%  ~~further notes~~
+ Implementation according to Wikipedia page
 }
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
@@ -96,7 +97,8 @@ plot(x,fn(x),type='l')
 points(res[1],fn(res[1]),col='red')
 
 
-legend('topleft',legend=c('Function', 'Estimated minimum'), col=c('black','red') ,lty=c(1,NA),pch=c(NA,1))
+legend('topleft',legend=c('Function', 'Estimated minimum'), col=c('black','red'),
+lty=c(1,NA),pch=c(NA,1))
 
 
 }
