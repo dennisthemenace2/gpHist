@@ -1,9 +1,10 @@
-#include "RMat.h"
 #include "R.h"     // R functions
 #include "Rmath.h" // Rmath
 
 #include <R_ext/Utils.h>
 #include <Rinternals.h>
+
+#include "RMat.h"
 
 
 #include <iostream> // For cout, cerr, endl, and flush
@@ -89,7 +90,7 @@ void getEigenSturm(double *alpha,int nalpha,double*beta,int k,double *result){
   int changeslow= changeslow_first;
   
   int changeshigh = calcSeqChanges(seqhigh);
-  int dif = abs(changeshigh -changeslow );
+ // int dif = abs(changeshigh -changeslow ); //monkas not used anymore
 
   for(unsigned int e=0; e<k; ++e ){
     double lb = bmin;
@@ -921,9 +922,14 @@ int compare ( const void *pa, const void *pb ){
   const double *a = (double*) pa;
   const double *b = (double*) pb;
   
-  if(a[0]  > b[0] ) return 1;
-  if(a[0] == b[0])  return 0;
-  if(a[0]  < b[0])  return -1;
+  int ret = 0;	
+  if(a[0]  > b[0] ){
+	ret = 1;
+  }else if(a[0]  < b[0]){
+	 ret =  -1;
+  }
+
+  return ret;
 }
 
 void sortIdx(RMat &vMatValues){
@@ -950,7 +956,7 @@ double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
   
   SEXP s_fval;
   PROTECT(s_fval = eval(function_call, environment));
-  if(length(s_fval) != 1) {
+  if(Rf_length(s_fval) != 1) {
     error("Function should return error to minimize");
   }
   double *err = REAL(s_fval);

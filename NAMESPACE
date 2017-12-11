@@ -1,4 +1,5 @@
-useDynLib(gpHist)
+useDynLib(gpHist, .registration = TRUE)
+importFrom("stats", "runif")
 export(gpHist)
 export(gpHistPredict)
 export(gpHistVariance)

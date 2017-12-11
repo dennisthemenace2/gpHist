@@ -87,7 +87,7 @@ public:
 
 private:
     double  *mValues;           // Matrix values
-   int     mNumRows, mNumCols; // Matrix dimensions
+    int     mNumRows, mNumCols; // Matrix dimensions
     bool    allocated;
     double  mNaN;               // Return NaN on bad input
 };

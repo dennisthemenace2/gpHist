@@ -1,6 +1,5 @@
 \name{gpHist-package}
 \alias{gpHist-package}
-\alias{gpHist}
 \docType{package}
 \title{
 Gaussian process with histogram intersection kernel
