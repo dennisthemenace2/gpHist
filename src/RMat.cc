@@ -1,11 +1,11 @@
 #include "RMat.h"   // For RMat class
+
+#include <R.h>      // For Rprintf
+
 #include <limits>   // For NaN
 #include <iostream> // For cout, cerr, endl, and flush
 #include <assert.h> // For assert
 
-#if COMPILE_WITH_R
-#include "R.h"      // For Rprintf
-#endif
 
 using std::cout;
 using std::cerr;
@@ -20,7 +20,7 @@ mNumCols(0), mNaN(std::numeric_limits<double>::quiet_NaN()),allocated(false)
 }
 
 //- Constructor #2
-RMat::RMat(int x, int y) : mNumRows(x),mNumCols(y),allocated(false),mValues(0),
+RMat::RMat(unsigned int x, unsigned int y) : mNumRows(x),mNumCols(y),allocated(false),mValues(0),
  mNaN(std::numeric_limits<double>::quiet_NaN())
 {
     AllocateMemory(x,y);
@@ -30,7 +30,7 @@ RMat::RMat(int x, int y) : mNumRows(x),mNumCols(y),allocated(false),mValues(0),
 //  This constructor will be used to point an RMat object to the memory
 //  location provided by R, via the '.C()' function.
 //
-RMat::RMat(double *vElements, int x, int y) :
+RMat::RMat(double *vElements, unsigned int x, unsigned int y) :
 mNaN(std::numeric_limits<double>::quiet_NaN()),allocated(false)
 {
     mValues  = vElements;
@@ -67,7 +67,7 @@ RMat& RMat::operator= (const RMat &vRhs){
       DeallocateMemory();
       AllocateMemory(vRhs.NumRows(),vRhs.NumCols());
     }
-    for ( int i=0; i<mNumRows*mNumCols; i++){
+    for ( unsigned int i=0; i<mNumRows*mNumCols; i++){
       mValues[i] = vRhs.mValues[i];
     }
     return (*this);
@@ -76,7 +76,7 @@ RMat& RMat::operator= (const RMat &vRhs){
 //- Assignment operator #2
 //
 RMat& RMat::operator= (double vValue){
-    for (int i=0; i<mNumRows*mNumCols; i++){
+    for (unsigned int i=0; i<mNumRows*mNumCols; i++){
         mValues[i] = vValue;
     }
     return (*this);
@@ -87,7 +87,7 @@ RMat& RMat::operator-= (const RMat &vRhs){
   assert(mNumCols==vRhs.mNumCols);
   assert(mNumRows==vRhs.mNumRows);
     
-  for (int i=0; i<mNumRows*mNumCols; i++){
+  for (unsigned int i=0; i<mNumRows*mNumCols; i++){
     mValues[i] -= vRhs.mValues[i];
   }
   return (*this);
@@ -155,7 +155,7 @@ RMat& RMat::operator+= (const RMat &vRhs){
     assert(mNumCols==vRhs.mNumCols);
     assert(mNumRows==vRhs.mNumRows);
     
-    for (int i=0; i<mNumRows*mNumCols; i++){
+    for (unsigned int i=0; i<mNumRows*mNumCols; i++){
       mValues[i] += vRhs.mValues[i];
     }
     return (*this);
@@ -163,7 +163,7 @@ RMat& RMat::operator+= (const RMat &vRhs){
 
 double RMat::Sum(){
     double result=0;
-    for ( int i=0; i<mNumRows*mNumCols; ++i){
+    for (unsigned int i=0; i<mNumRows*mNumCols; ++i){
       result+= mValues[i]; 
     }
     return result;
@@ -178,7 +178,7 @@ double RMat::ScalarProd(const RMat &vRhs){
     return (double &) mNaN;
   }
   double result=0;
-  for ( int i=0; i<mNumRows*mNumCols; ++i){
+  for (unsigned int i=0; i<mNumRows*mNumCols; ++i){
     result+= mValues[i]*vRhs.mValues[i]; 
   }
   
@@ -187,7 +187,7 @@ double RMat::ScalarProd(const RMat &vRhs){
 
 double RMat::SquareSum(){// or call this square norm, could also call ScalarProd
   double result=0;
-  for ( int i=0; i<mNumRows*mNumCols; ++i){
+  for (unsigned int i=0; i<mNumRows*mNumCols; ++i){
     result+= mValues[i]*mValues[i]; 
   }
   
@@ -195,7 +195,7 @@ double RMat::SquareSum(){// or call this square norm, could also call ScalarProd
 }
 
 // THIS IS a hack
-double* RMat::getColPtr( int col ){
+double* RMat::getColPtr( unsigned int col ){
   if ( col<1 || col>mNumCols){
     //cerr << "Rmat::getColPtr: range error!" << endl;
     Rprintf("Rmat::getColPtr: range error!\n");
@@ -222,11 +222,11 @@ RMat::operator* (const RMat &vRhs) // maybe make this faster..
 {
     assert(mNumCols==vRhs.mNumRows);
     RMat vProduct(mNumRows,vRhs.NumCols());
-    for ( int i=1; i<=mNumRows; i++)
+    for (unsigned int i=1; i<=mNumRows; i++)
     {
-        for ( int j=1; j<=vRhs.NumCols(); j++)
+        for (unsigned int j=1; j<=vRhs.NumCols(); j++)
         {
-            for ( int k=1;k<=mNumCols;k++)
+            for (unsigned int k=1;k<=mNumCols;k++)
             { 
                 vProduct(i,j)+=(*this)(i,k)*vRhs(k,j); 
             } 
@@ -240,12 +240,12 @@ RMat RMat::tMultiply (RMat &vRhs){
   assert(mNumRows==vRhs.mNumRows);
   
   RMat vProduct(mNumCols,vRhs.NumCols());
-  for ( int i=1; i<=mNumCols; ++i){
+  for (unsigned int i=1; i<=mNumCols; ++i){
     double *p1=getColPtr(i);
-    for ( int j=1; j<=vRhs.NumCols(); ++j){
+    for (unsigned int j=1; j<=vRhs.NumCols(); ++j){
       double *p2= vRhs.getColPtr(j);
       double sum=0;
-      for(int z=0;z<mNumRows;++z){
+      for(unsigned int z=0;z<mNumRows;++z){
         sum+= p1[z]*p2[z];
       }
       vProduct(i,j)=sum;
@@ -257,8 +257,8 @@ RMat RMat::tMultiply (RMat &vRhs){
 
 RMat RMat::ColSums(){
   RMat vProduct(mNumCols,1);
-  for(int j=0;j<mNumCols;++j){
-    for(int i=0;i<mNumRows;++i){
+  for(unsigned int j=0;j<mNumCols;++j){
+    for(unsigned int i=0;i<mNumRows;++i){
       vProduct.mValues[j] += mValues[ (j)*mNumRows+(i)];
     }
   }
@@ -268,8 +268,8 @@ RMat RMat::ColSums(){
 RMat RMat::RowSums(){
   RMat vProduct(mNumRows,1);
 
-  for(int j=0;j<mNumCols;++j){
-    for(int i=0;i<mNumRows;++i){
+  for(unsigned int j=0;j<mNumCols;++j){
+    for(unsigned int i=0;i<mNumRows;++i){
       vProduct.mValues[i] += mValues[ (j)*mNumRows+(i)];
     }
   }
@@ -279,7 +279,7 @@ RMat RMat::RowSums(){
 RMat RMat::operator* (const double vRhs){
     
   RMat vProduct(mNumRows,mNumCols);
-  for ( int i=0; i<mNumRows*mNumCols; i++){
+  for (unsigned int i=0; i<mNumRows*mNumCols; i++){
        vProduct.mValues[i] =  mValues[i]* vRhs;
   }
   return vProduct;
@@ -288,7 +288,7 @@ RMat RMat::operator* (const double vRhs){
 //- Element access
 //
 double&
-RMat::operator()( int x, int y) const
+RMat::operator()(unsigned int x,unsigned int y) const
 {
     //- Basic range checks.
     //
@@ -316,9 +316,9 @@ RMat::operator()( int x, int y) const
 RMat RMat::Transpose() // this should be slow...
 {
     RMat vTranspose(mNumCols,mNumRows);
-    for (int i=1; i<=mNumRows; i++)
+    for (unsigned int i=1; i<=mNumRows; i++)
     {
-        for (int j=1; j<=mNumCols; j++)
+        for (unsigned int j=1; j<=mNumCols; j++)
         {
             vTranspose(j,i) = (*this)(i,j); 
         }
@@ -331,9 +331,9 @@ RMat RMat::Transpose() // this should be slow...
 //- RPrint #1
 //
 void RMat::RPrint(){
-    for ( int i=1; i<=mNumRows; i++)
+    for (unsigned int i=1; i<=mNumRows; i++)
     {
-        for ( int j=1; j<=mNumCols; j++)
+        for (unsigned int j=1; j<=mNumCols; j++)
         {
             Rprintf("%g  ",(*this)(i,j));
         }
@@ -353,20 +353,20 @@ void RMat::RPrint(const char *vString){
 
 //- Get number of rows
 //
-int RMat::NumRows() const{
+unsigned int RMat::NumRows() const{
     return mNumRows;
 }
 
 //- Get number of columns
 //
-int RMat::NumCols() const {
+unsigned int RMat::NumCols() const {
     return mNumCols;
 }
 
 //- Allocate memory
 //  Initialize all entries to 0.
 //
-bool RMat::AllocateMemory( int x, int y)
+bool RMat::AllocateMemory(unsigned int x,unsigned int y)
 {
     DeallocateMemory();
     try {

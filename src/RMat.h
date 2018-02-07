@@ -1,15 +1,13 @@
 #ifndef _RMAT_H
 #define _RMAT_H
 
-#define COMPILE_WITH_R 1
-
 class RMat {
 public:      
     //- Constructors and destructor.
     //
     RMat();                                // Constructor #1
-    RMat( int x,   int y);                    // Constructor #2 for x-by-y matrix.
-    RMat(double *vElements,   int x,  int y); // Constructor #3 for R interface
+    RMat(unsigned int x,  unsigned int y);                    // Constructor #2 for x-by-y matrix.
+    RMat(double *vElements,  unsigned int x, unsigned int y); // Constructor #3 for R interface
     RMat(const RMat &vRhs);                // Constructor #4 (copy constructor)
     ~RMat();                               // Destructor
 
@@ -32,21 +30,21 @@ public:
     RMat RowSums();
     RMat ColSums();
     void SetZero();
-    double* getColPtr( int col );
+    double* getColPtr( unsigned int col );
     double* getValuesPtr(){return mValues;};
     void setValuesPtr(double* ptr){mValues=ptr;};
     RMat tMultiply(RMat &vRhs);
       
     friend RMat operator/(double vLhs, const RMat &vRhs){
       RMat vProduct(vRhs.mNumRows,vRhs.mNumCols);
-      for ( int i=0; i<vRhs.mNumRows*vRhs.mNumCols; i++){
+      for (unsigned int i=0; i<vRhs.mNumRows*vRhs.mNumCols; i++){
         vProduct.mValues[i] = vLhs/vRhs.mValues[i];
       }
       return vProduct;
     }
     friend RMat operator*(double vLhs, const RMat &vRhs){
       RMat vProduct(vRhs.mNumRows,vRhs.mNumCols);
-      for ( int i=0; i<vRhs.mNumRows*vRhs.mNumCols; i++){
+      for ( unsigned int i=0; i<vRhs.mNumRows*vRhs.mNumCols; i++){
         vProduct.mValues[i] = vLhs*vRhs.mValues[i];
       }
       return vProduct;
@@ -55,7 +53,7 @@ public:
         
    // operator double() const {return mValues[0]; }
     
-    double& operator()( int x,  int y) const; // Element access
+    double& operator()( unsigned int x, unsigned int y) const; // Element access
 
     double SquareSum();
     double Sum();
@@ -64,14 +62,13 @@ public:
     //- Some utility functions.
     //
     RMat Transpose();                 // Transpose
-     int NumRows() const;              // Returns number of rows.
-     int NumCols() const;              // Returns number of columns.
+     unsigned int NumRows() const;              // Returns number of rows.
+     unsigned int NumCols() const;              // Returns number of columns.
   //  void Print();                     // Print matrix to stdout
 //    void Print(const char *vString);  // Print matrix to stdout with string.
-#if COMPILE_WITH_R
+
     void RPrint();                    // Print matrix to R console.
     void RPrint(const char *vString); // Print matrix to R console with string.
-#endif
 
     //- A function for deallocating memory is made publicly available because
     //  I want to not only run test this code in a pure C++ test
@@ -82,12 +79,12 @@ public:
     //  For symmetry, the function for memory allocation is also made publicly
     //  available, although it didn't have to be.  (Maybe it should be private!)
     //
-    bool AllocateMemory( int x,  int y); // Allocate memory for x-by-y matrix.
+    bool AllocateMemory( unsigned int x, unsigned int y); // Allocate memory for x-by-y matrix.
     void DeallocateMemory();           // Deallocate memory
 
 private:
     double  *mValues;           // Matrix values
-    int     mNumRows, mNumCols; // Matrix dimensions
+    unsigned int     mNumRows, mNumCols; // Matrix dimensions
     bool    allocated;
     double  mNaN;               // Return NaN on bad input
 };

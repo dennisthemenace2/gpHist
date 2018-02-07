@@ -1,5 +1,5 @@
-#include "R.h"     // R functions
-#include "Rmath.h" // Rmath
+#include <R.h>     // R functions
+#include <Rmath.h> // Rmath
 
 #include <R_ext/Utils.h>
 #include <Rinternals.h>
@@ -15,10 +15,10 @@
 #include <pthread.h>
 
 
-void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,double*betas,double sigma);
+void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,unsigned int k,double*alphas,double*betas,double sigma);
 
 // calculate sturm seq
-void sturmSeq(double* alpha,int nalpha, double *beta,double lambda,double* result){
+void sturmSeq(double* alpha,unsigned int nalpha, double *beta,double lambda,double* result){
   
   result[0] = lambda- alpha[0];
   result[1] = (lambda- alpha[1])*result[0] - ( (*beta) * (*beta) ) ;
@@ -50,7 +50,7 @@ int calcSeqChanges(RMat& m1){
   return result;
 }
 // estimates the eigenvalues of a tri diagonal matrix using sturm seq.
-void getEigenSturm(double *alpha,int nalpha,double*beta,int k,double *result){
+void getEigenSturm(double *alpha,unsigned int nalpha,double*beta,unsigned int k,double *result){
   
   if(k==0 || k>nalpha){//this should not happen anyway
     //std::cout<<"invalid number of eigenvalues. k="<<k<<" nalpha="<< nalpha<< "\n";
@@ -641,12 +641,12 @@ void inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double s
 }
 
 // two helper functions for predictions
-double sumOrdered(RMat& alpha,RMat&orders,int start,int end,int col){
+double sumOrdered(RMat& alpha,RMat&orders,unsigned int start,unsigned int end,unsigned int col){
   double result = 0;
   double *orders_ptr = orders.getColPtr(col)+(start-1);
   double *alpha_ptr = alpha.getValuesPtr();
   
-  for(int i= start;i<=end;++i){
+  for(unsigned int i= start;i<=end;++i){
     int idx = *(orders_ptr++);
     idx -=1; // or set pointer to invalid location and skip this ?
     result += alpha_ptr[idx];
@@ -654,13 +654,13 @@ double sumOrdered(RMat& alpha,RMat&orders,int start,int end,int col){
   return result;
 }
 
-double sumSquareOrdered(RMat& X,RMat&orders,int start,int end, int col){
+double sumSquareOrdered(RMat& X,RMat&orders,unsigned int start,unsigned int end,unsigned int col){
   double result = 0;
   double *X_ptr = X.getColPtr(col);
   double *orders_ptr = orders.getColPtr(col)+(start-1);
   
-  for(int i= start;i<=end;++i){
-    int idx = *(orders_ptr++);
+  for(unsigned int i= start;i<=end;++i){
+    unsigned int idx = *(orders_ptr++);
     idx -=1;
     double val = X_ptr[idx];
     result += val*val;
@@ -669,14 +669,14 @@ double sumSquareOrdered(RMat& X,RMat&orders,int start,int end, int col){
   return result;
 }
 
-double sumOrdered(RMat& X,RMat& alpha,RMat&orders,int start,int end, int col){
+double sumOrdered(RMat& X,RMat& alpha,RMat&orders,unsigned int start,unsigned int end,unsigned int col){
   double result = 0;
   double *alpha_ptr = alpha.getValuesPtr();
   double *X_ptr = X.getColPtr(col);
   double *orders_ptr = orders.getColPtr(col)+(start-1);
   
-  for(int i= start;i<=end;++i){
-    int idx = *(orders_ptr++);
+  for(unsigned int i= start;i<=end;++i){
+    unsigned int idx = *(orders_ptr++);
     idx -=1;
     result += X_ptr[idx]*alpha_ptr[idx];
   }
@@ -684,17 +684,17 @@ double sumOrdered(RMat& X,RMat& alpha,RMat&orders,int start,int end, int col){
   return result;
 }
 
-int findIdx(RMat& X,RMat& orders,double value,int col){
+int findIdx(RMat& X,RMat& orders,double value,unsigned int col){
   // try intersection...
   double *orders_ptr = orders.getColPtr(col); // pointer to column
   double *X_ptr = X.getColPtr(col); // pointer to column
   
-  int min = 0;
-  int max = X.NumRows()-1;
-  int mid; 
+  unsigned int min = 0;
+  unsigned int max = X.NumRows()-1;
+  unsigned int mid; 
   do{
     mid = (min+max)/2;
-    if(X_ptr[(int) orders_ptr[mid]-1 ] >value  ){ // go left
+    if(X_ptr[(unsigned int) orders_ptr[mid]-1 ] >value  ){ // go left
       max = mid;
     }else{ // go right should i consider equal 
       min = mid;
@@ -702,11 +702,11 @@ int findIdx(RMat& X,RMat& orders,double value,int col){
     
   }while(max-min >1);
   
-  if( value <= X_ptr[(int) orders_ptr[min]-1 ] ){
+  if( value <= X_ptr[(unsigned int) orders_ptr[min]-1 ] ){
     mid = min;//-1;
   }else{
     mid = max;
-    if(value>X_ptr[(int) orders_ptr[max]-1 ]){
+    if(value>X_ptr[(unsigned int) orders_ptr[max]-1 ]){
       mid = max+1;
     }
   }
@@ -715,17 +715,17 @@ int findIdx(RMat& X,RMat& orders,double value,int col){
 }
 
 // coarse approximation
-void CppHistVarianceCoarse(double* result,int numRows,int numCols,int numRows2,int numCols2,double* mat1,double* mat2,double lambda,double sigma,double* orders){
+void CppHistVarianceCoarse(double* result,unsigned int numRows,unsigned int numCols,unsigned int numRows2,unsigned int numCols2,double* mat1,double* mat2,double lambda,double sigma,double* orders){
   RMat  vMatX(mat1,numRows,numCols);
   RMat  vMatPred(mat2,numRows2,numCols2);
   RMat  vMatResult(result,numRows2,1);
   RMat  vMatOrders(orders,numRows,numCols);
   
-  for(int i=1; i<=numRows2;++i ){
+  for(unsigned int i=1; i<=numRows2;++i ){
     double A=0;
     double B=0;
     
-    for(int d=1; d<= numCols2;++d){
+    for(unsigned int d=1; d<= numCols2;++d){
       int idx = findIdx(vMatX,vMatOrders, vMatPred(i,d),d);
 
       if(idx>0){
@@ -744,7 +744,7 @@ void CppHistVarianceCoarse(double* result,int numRows,int numCols,int numRows2,i
 }
 
 // finer approximation use all calculated lambdas
-void CppHistVarianceFine(double* result,int numRows,int numCols,int numRows2,int numCols2,double* X,double* pred,double *lambda,int nlambda, double *vectors,double sigma,double* orders){
+void CppHistVarianceFine(double* result,unsigned int numRows,unsigned int numCols,unsigned int numRows2,unsigned int numCols2,double* X,double* pred,double *lambda,int nlambda, double *vectors,double sigma,double* orders){
   RMat  vMatX(X,numRows,numCols);
   RMat  vMatPred(pred,numRows2,numCols2);
   RMat  vMatResult(result,numRows2,1);
@@ -753,16 +753,16 @@ void CppHistVarianceFine(double* result,int numRows,int numCols,int numRows2,int
   RMat  k_star(numRows,1); // number of alphas 
   
   vMatResult =   vMatPred.RowSums(); // init this one...
-  for(int s=1; s<=numRows2;++s ){ // each sample to predict
+  for(unsigned int s=1; s<=numRows2;++s ){ // each sample to predict
     //calc k_star
     k_star.SetZero();
     //estimate k_star
-    for(unsigned x=1;x<=numCols;++x){ // each dimension
+    for(unsigned int x=1;x<=numCols;++x){ // each dimension
       double *col = vMatX.getColPtr(x);
       double *starpointer =k_star.getValuesPtr();
       double value =  vMatPred(s,x); // check against this value
       
-      for(unsigned y=1;y<=numRows;++y){ // each row in X
+      for(unsigned int y=1;y<=numRows;++y){ // each row in X
         if(value< *col){ // value smaller X
           *starpointer +=value;
         }else{
@@ -801,7 +801,7 @@ void CppHistVarianceFine(double* result,int numRows,int numCols,int numRows2,int
 
 
 void CppHistPredict(double *result,
-                    int numRows, int numCols,int numRows2 ,int numCols2,
+                    unsigned int numRows, unsigned int numCols,unsigned int numRows2 ,unsigned int numCols2,
                     double *mat1, double *mat2,double* mat3,double *orders){
   
   RMat  vMatX(mat1,numRows,numCols);
@@ -811,12 +811,12 @@ void CppHistPredict(double *result,
   RMat  vMatOrders(orders,numRows,numCols);
   
   //  pred = c()
-  for(int i=1; i<=numRows2;++i ){
+  for(unsigned int i=1; i<=numRows2;++i ){
     double C=0;
     double A=0;
     double B=0;
     
-    for(int d=1; d<= numCols2;++d){
+    for(unsigned int d=1; d<= numCols2;++d){
       // find idx....
       
       int idx = findIdx(vMatX,vMatOrders, vMatPred(i,d),d);
@@ -841,8 +841,8 @@ void CppHistPredict(double *result,
 }
 
 void CppHist(double *result,
-             int numRows, int numCols,int numRows2 ,int numCols2,
-             double *mat1, double *mat2,double sigma , double *orders, double* logmarginal,double* lambda, double *vector,int k)
+             unsigned int numRows, unsigned int numCols,unsigned int numRows2 ,unsigned int numCols2,
+             double *mat1, double *mat2,double sigma , double *orders, double* logmarginal,double* lambda, double *vector,unsigned int k)
 {
   RMat  vMatX(mat1,numRows,numCols);
   RMat  vMatY(mat2,numRows2,numCols2);
@@ -868,7 +868,7 @@ void CppHist(double *result,
     
     // run lanczos for more iterations than eigenvalues requried, otherwise it will not necessarly 
     // give you the k largest eigenvalues.
-    int k_lancz = ceil(k*1.5);// according to wiki 1.5
+    unsigned int k_lancz = ceil(k*1.5);// according to wiki 1.5
     if(k_lancz>numRows){// too many
       k_lancz = k;
     }
@@ -968,7 +968,7 @@ double dummy(RMat& params,SEXP function_call,SEXP environment,double* input){
 }
 
 //lanczos implementation, think about full reorthogornalisation......
-void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,double*betas,double sigma){
+void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,unsigned int k,double*alphas,double*betas,double sigma){
   
   RMat v =  bmat / sqrt(bmat.SquareSum() );
   //RMat v_prev(Xmat.NumRows(),1); // chnages htis
@@ -978,7 +978,7 @@ void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,doub
   vcol = v;
   
   RMat w(Xmat.NumRows(),1);
-  for(unsigned i = 0;i<k-1;++i){
+  for(unsigned int i = 0;i<k-1;++i){
     fastMultiply( Xmat,v, w,vMatOrders, sigma);
 
     alphas[i] = w.ScalarProd(v); // calc allha
@@ -1012,7 +1012,7 @@ void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,int k,double*alphas,doub
 }
 
 extern "C" {
-  void CgpHist(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda,double* vector,int*k){
+  void CgpHist(double *result,double *mat1,unsigned int *numRows,unsigned int *numCols, double *mat2,unsigned int *numRows2,unsigned int *numCols2,double *sigma,double *orders,double* logmarginal,double *lambda,double* vector,unsigned int *k){
     //  std::cout<<"CgpHist"  <<std::endl;
 #if COMPILE_PARALLEL == 2
     if(threads==NULL){
@@ -1027,20 +1027,20 @@ extern "C" {
     CppHist(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*sigma,orders,logmarginal,lambda, vector,*k);
   }
   
-  void CgpHistPredict(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double *mat3,double *orders){
+  void CgpHistPredict(double *result,double *mat1,unsigned int *numRows,unsigned int *numCols, double *mat2,unsigned int *numRows2,unsigned int *numCols2,double *mat3,double *orders){
     CppHistPredict(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,mat3,orders);
   }
   
   // predict variance. coarse and fine are supported
-  void CgpHistVarianceCoarse(double *result,double *mat1,int *numRows,int *numCols, double *mat2,int *numRows2,int *numCols2,double*lambda,double* sigma, double *orders){
+  void CgpHistVarianceCoarse(double *result,double *mat1,unsigned int *numRows,unsigned int *numCols, double *mat2,unsigned int *numRows2,unsigned int *numCols2,double*lambda,double* sigma, double *orders){
     CppHistVarianceCoarse(result,*numRows,*numCols,*numRows2,*numCols2,mat1,mat2,*lambda,*sigma,orders);
   }
-  void CgpHistVarianceFine(double* result,int *numRows,int *numCols,int *numRows2,int *numCols2,double* X,double* pred,double *lambda,int *nlambda, double *vectors,double *sigma,double* orders){
+  void CgpHistVarianceFine(double* result,unsigned int *numRows,unsigned int *numCols,unsigned int *numRows2,unsigned int *numCols2,double* X,double* pred,double *lambda,unsigned int *nlambda, double *vectors,double *sigma,double* orders){
     CppHistVarianceFine(result,*numRows,*numCols,*numRows2,*numCols2,X,pred,lambda, *nlambda,vectors,*sigma,orders);
   }
 
   // downhill simplex with boundery check for estimation of hyperparameters
-  void Cdownhillsimplex(SEXP func,SEXP sys,int* nParams,double* bp,double* lower,double* upper,int *resPtr, double *alpha,double *gamma,double *beta,double *sigma,unsigned int *it,double *tol){
+  void Cdownhillsimplex(SEXP func,SEXP sys,unsigned int* nParams,double* bp,double* lower,double* upper,unsigned int *resPtr, double *alpha,double *gamma,double *beta,double *sigma,unsigned int *it,double *tol){
     SEXP arg;
     SEXP environment;
     
@@ -1052,7 +1052,7 @@ extern "C" {
     SEXP function_call;
     PROTECT(function_call = lang2(func, arg));
     
-    int Np1 = (*nParams)+1;
+    unsigned int Np1 = (*nParams)+1;
     RMat  vMatbp(bp,*nParams,Np1); //parameters but make downwords
     RMat  vMatValues( 2,Np1); //functiosn values..next row idx
     
@@ -1061,7 +1061,7 @@ extern "C" {
     RMat  e(*nParams ,1); //new parameters
 
     double fcRes;
-    for(int i=1;i<=Np1;++i){
+    for(unsigned int i=1;i<=Np1;++i){
       RMat point(vMatbp.getColPtr(i),*nParams ,1); // get vector of params
       fcRes = dummy(point,function_call,environment, input);
       vMatValues(1,i) = fcRes;
@@ -1085,7 +1085,7 @@ extern "C" {
       //have to do stuff because not the last solution...
       int idx ;
       m.SetZero();
-      for(int x=1;x<vMatbp.NumCols();++x){
+      for(unsigned int x=1;x<vMatbp.NumCols();++x){
         idx =  (int) vMatValues(2,x);
         RMat setup(vMatbp.getColPtr(idx), (*nParams) ,1);
         m += setup;
@@ -1093,7 +1093,7 @@ extern "C" {
 
       m /= (*nParams); // mean
       
-      idx =(int) vMatValues(2,Np1);
+      idx =(unsigned int) vMatValues(2,Np1);
       // std::cout<<"calculated mean"<<std::endl;  
       
       RMat point(vMatbp.getColPtr(idx),*nParams ,1); // get vector of params
@@ -1142,11 +1142,11 @@ extern "C" {
         continue;
       }
       
-      idx = (int) vMatValues(2,1);
+      idx = (unsigned int) vMatValues(2,1);
       RMat best(vMatbp.getColPtr(idx),*nParams ,1); 
       
-      for(int k=2;k<= vMatbp.NumCols();++k){ 
-        idx = (int) vMatValues(2,k);
+      for(unsigned int k=2;k<= vMatbp.NumCols();++k){ 
+        idx = (unsigned int) vMatValues(2,k);
         point.setValuesPtr(vMatbp.getColPtr(idx));
         
         e = best+ (*sigma) *( point -best);
