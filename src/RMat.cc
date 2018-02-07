@@ -15,12 +15,12 @@ using std::flush;
 //- Constructor #1
 //
 RMat::RMat() : mValues(0), mNumRows(0),
-mNumCols(0), mNaN(std::numeric_limits<double>::quiet_NaN()),allocated(false)
+mNumCols(0),allocated(false),mNaN(std::numeric_limits<double>::quiet_NaN())
 {
 }
 
 //- Constructor #2
-RMat::RMat(unsigned int x, unsigned int y) : mNumRows(x),mNumCols(y),allocated(false),mValues(0),
+RMat::RMat(unsigned int x, unsigned int y) :mValues(0), mNumRows(x),mNumCols(y),allocated(false),
  mNaN(std::numeric_limits<double>::quiet_NaN())
 {
     AllocateMemory(x,y);
@@ -30,8 +30,8 @@ RMat::RMat(unsigned int x, unsigned int y) : mNumRows(x),mNumCols(y),allocated(f
 //  This constructor will be used to point an RMat object to the memory
 //  location provided by R, via the '.C()' function.
 //
-RMat::RMat(double *vElements, unsigned int x, unsigned int y) :
-mNaN(std::numeric_limits<double>::quiet_NaN()),allocated(false)
+RMat::RMat(double *vElements, unsigned int x, unsigned int y) :allocated(false),
+mNaN(std::numeric_limits<double>::quiet_NaN())
 {
     mValues  = vElements;
     mNumRows = x;
@@ -41,7 +41,7 @@ mNaN(std::numeric_limits<double>::quiet_NaN()),allocated(false)
 //- Constructor #4 (copy constructor)
 //
 RMat::RMat(const RMat &vRhs) : mValues(0), mNumRows(0),
-mNumCols(0), mNaN(std::numeric_limits<double>::quiet_NaN())
+mNumCols(0),allocated(false), mNaN(std::numeric_limits<double>::quiet_NaN())
 {
   AllocateMemory(vRhs.NumRows(),vRhs.NumCols());
   
