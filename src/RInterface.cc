@@ -684,7 +684,7 @@ double sumOrdered(RMat& X,RMat& alpha,RMat&orders,unsigned int start,unsigned in
   return result;
 }
 
-int findIdx(RMat& X,RMat& orders,double value,unsigned int col){
+unsigned int findIdx(RMat& X,RMat& orders,double value,unsigned int col){
   // try intersection...
   double *orders_ptr = orders.getColPtr(col); // pointer to column
   double *X_ptr = X.getColPtr(col); // pointer to column
@@ -744,7 +744,7 @@ void CppHistVarianceCoarse(double* result,unsigned int numRows,unsigned int numC
 }
 
 // finer approximation use all calculated lambdas
-void CppHistVarianceFine(double* result,unsigned int numRows,unsigned int numCols,unsigned int numRows2,unsigned int numCols2,double* X,double* pred,double *lambda,int nlambda, double *vectors,double sigma,double* orders){
+void CppHistVarianceFine(double* result,unsigned int numRows,unsigned int numCols,unsigned int numRows2,unsigned int numCols2,double* X,double* pred,double *lambda,unsigned int nlambda, double *vectors,double sigma,double* orders){
   RMat  vMatX(X,numRows,numCols);
   RMat  vMatPred(pred,numRows2,numCols2);
   RMat  vMatResult(result,numRows2,1);
@@ -819,7 +819,7 @@ void CppHistPredict(double *result,
     for(unsigned int d=1; d<= numCols2;++d){
       // find idx....
       
-      int idx = findIdx(vMatX,vMatOrders, vMatPred(i,d),d);
+      unsigned int idx = findIdx(vMatX,vMatOrders, vMatPred(i,d),d);
       
       if(idx>0){
         if(idx==numRows){//###largest
