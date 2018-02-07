@@ -326,8 +326,6 @@ RMat RMat::Transpose() // this should be slow...
     return vTranspose;
 }
 
-
-#if COMPILE_WITH_R
 //- RPrint #1
 //
 void RMat::RPrint(){
@@ -349,7 +347,6 @@ void RMat::RPrint(const char *vString){
     Rprintf("%s",vString);
     RPrint();
 }
-#endif
 
 //- Get number of rows
 //
