@@ -1,15 +1,12 @@
 ## Overview
 
 
-This package provides Gaussien Process with histogram intersection kernel and variance approximations
-The package is design to provide the highest speed. It only encomprises a very limites number of functions and is supposed to be light weight.
+This package provides a Gaussian Process with histogram intersection kernel and variance approximations.
+The package is design to provide a high speed for estimation of the Gaussian Process. Therefore, it only encompasses a very limited number of functions and is supposed to be light weight.
 
 ## Installation
 
 ```{r, eval = FALSE}
-# The easiest way to get gpHist is:
-install.packages("gpHist")
-
 
 # Or the development version from GitHub:
 # install.packages("devtools")
