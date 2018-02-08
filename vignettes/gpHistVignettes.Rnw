@@ -101,9 +101,7 @@ g_{\text{exp}} (\bm{x}(d))= \frac{\text{exp}(\eta \left|  \bm{x}(d) \right| )-1 
 This transformation retains the order of the samples and therefore the fast evaluation of the kernel vector product can still be applied.
 For each dimension, a different parameter $\bm{\eta}(d)$ is used in order to individually weight each dimension.
 
-
-
-\subsection{Utilized approximations and Bayesian optimization}
+\subsection{Utilized approximations}
 
 The implementation of the Gaussian process with HIK mostly follows the implementation of Rodner et al. (2016). %~\cite{Rodner2016}.
 For the prediction of the mean of new samples values, the values of the vector $\bm{\alpha}$ are required. The $\bm{\alpha}$ values are estimated using conjugate gradient descent, which allows to never estimate the inverse of the matrix $\mathbf{K_y}$. In the absence of round-off errors, this would allow to obtain the exact solution after $N$ iterations. In practice, the algorithm can be stopped significantly earlier when the norm of the residual drops below a specified threshold.
@@ -133,6 +131,33 @@ the coarse approximaation
 The hyperparameters that are required for the exponential transformation and shift of the data are estimated using the downhill simplex algorithm~\cite{Nelder1965}, which is a gradient free optimization algorithm. This avoids estimation of the gradient, which would require an inversion of the kernel matrix.
 
 
+
+\subsection{Implementation details}
+
+The kernel matrix resulting from the HIK can be multiplied with an arbitrary vector without creating the kernel matrix.
+The vector of data samples $X=\begin{bmatrix}1\\2\\3\end{bmatrix}$ and the vector $\nu=\begin{bmatrix}2\\4\\6\end{bmatrix}$ the kernel matrix from the vector would be $\kappa_{min}=\begin{bmatrix}
+ 1& 1 &1 \\ 
+ 1&  2&2 \\ 
+ 1&2  &3 
+\end{bmatrix}$, however, we know what the kernel would look like thats why we can calculate this without creating the kernel matrix as shown below.
+
+$
+\begin{bmatrix}1\\2\\3\end{bmatrix}
+\times
+\begin{bmatrix}2\\4\\6\end{bmatrix}
+=
+\begin{Bmatrix}
+2 &2  &2 \\ 
+4 &8  &8 \\ 
+6 &12  &18 
+\end{Bmatrix}
+=
+\begin{bmatrix}12\\ 22\\28\end{bmatrix}
+$
+
+ 
+If we consider we the intermediate result of the multiplication, we notice that the multiplied vector is the diagonal. 
+This further improves us to speed up the calculation. However, it assumes that the values are ordered.
 
 
 \bibliography{bib}
