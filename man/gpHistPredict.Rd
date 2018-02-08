@@ -6,7 +6,7 @@ gpHistPredict Function
 }
 \description{
 
-This function is used to predict new sample means. For prediction of the variance the function gpHistVariance is used. This has been done intentially, to provide the chance not to predict the variance if it is not required. Also keep in mind, that you need the data that you used for training of GP to make predictions.
+This function is used to predict new sample means. For prediction of the variance the function gpHistVariance is used. This has been done intentionally, to provide the chance not to predict the variance if it is not required. Also keep in mind, that you need the data that you used for training of GP to make predictions.
 
 }
 \usage{
@@ -31,7 +31,7 @@ This function is used to predict new sample means. For prediction of the varianc
   X and x_pred need to be matrix in correct format. Each row is one example of D dimensions.
 }
 \value{
-If the function fails or spotts an error in the parameters NAN is returned. Otherwise the predicted sample mean is returned.
+If the function fails or spots an error in the parameters NAN is returned. Otherwise the predicted sample mean is returned.
 }
 
 

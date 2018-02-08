@@ -32,13 +32,13 @@ gpHist(X,Y,sigma,orders=NULL,alphas = NULL,k=1)
  With this parameters the initial value of the alphas can be set. If not set, a random vector will be used. By setting the alpha vector the convergence can potentially be speed up.
 }
  \item{k}{
- The number of estimated eigenvalues and eigenvectors. This effects the approximation of the log-likelyhood and the predicted variance. It has no influence on the prediction of the mean of new sample values.
-Estimation of eigenvectors scales quadratically, so be awere of this additional runtime.
+ The number of estimated eigenvalues and eigenvectors. This effects the approximation of the log-likelihood and the predicted variance. It has no influence on the prediction of the mean of new sample values.
+Estimation of eigenvectors scales quadratically, so be aware of this additional runtime.
 }
 }
 \details{
-	This function will estimate the Gaussian process with HIK kernen using conjugate gradient descent and return all required estimates as lists.
-If only one eigenvector is estimated the power method will be used. For multible eigenvectors, Lanczos algorihm is applied. The eigenvalues will be bounded using sturm sequences and then estimatied using inverse iteration, wich also makes use of the conjugate gradient descent. Estimated time of multible eigenvectors greatly varies.
+	This function will estimate the Gaussian process with HIK using conjugate gradient descent and return all required estimates as lists.
+If only one eigenvector is estimated the power method will be used. For multiple eigenvectors, Lanczos algorithm is applied. The eigenvalues will be bounded using Sturm sequences and then estimated using inverse iteration, which also makes use of the conjugate gradient descent. Estimated time of multiple eigenvectors greatly varies.
 }
 \value{
 If the functions fails or wrong parameters are provided NAN is returned.
@@ -60,7 +60,7 @@ Dennis Becker
 }
 \note{
 You need to keep the X data that you used for training because it is not saved within the returned GP object.
- In the future more parameters will be added to controll the internals of the function.
+ In the future more parameters will be added to control the internals of the function.
 
 }
 

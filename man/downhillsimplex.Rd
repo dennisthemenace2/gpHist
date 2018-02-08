@@ -5,7 +5,7 @@
   downhillsimplex function
 }
 \description{
-	Impementation of the downhillsimplex function for optimisation
+	Implementation of the downhillsimplex function for optimisation
 }
 \usage{
 
@@ -22,7 +22,7 @@ control= list(alpha=1,gamma=2, beta=0.5,sigma = 0.5) )
     Number of parameters that the function to be optimized requires
   }
   \item{bp}{
-	Matrix used to start the optimisation. If no parameters is given, this matrix will be randamly initialized.
+	Matrix used to start the optimisation. If no parameters is given, this matrix will be randomly initialized.
   }
 
   \item{lower}{
@@ -34,18 +34,18 @@ control= list(alpha=1,gamma=2, beta=0.5,sigma = 0.5) )
  }
 
  \item{it}{
-	Maximium number of iterations done by the downhillsimplex algortihm	
+	Maximum number of iterations done by the downhillsimplex algorithm	
  }
 
  \item{tol}{
-	tolearnce that is used to test for convergence	
+	tolerance that is used to test for convergence	
  }
 
  \item{control}{
-	list of variables that control the behavior of the downhillsimpley algorithm.	
+	list of variables that control the behavior of the downhillsimplex algorithm.	
 	alpha = Reflexion
   	gamma = Expansion
-  	beta = Contraktion
+  	beta = Contraction
   	sigma = Compression
  }
 

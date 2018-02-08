@@ -5,7 +5,7 @@
   estimateHyperParameters Function
 }
 \description{
- This function can be used to estimate the hyperparameters of the GP Hist. THe function provides to set bounds on the parameters and the specification of a data transformation function. The data transformation function can be used to make use of the generalized HIK. Where this function provided the g() function that transforms the data. 
+ This function can be used to estimate the hyperparameters of the GP Hist. The function provides to set bounds on the parameters and the specification of a data transformation function. The data transformation function can be used to make use of the generalized HIK. Where this function provided the g() function that transforms the data. 
 }
 \usage{
 estimateHyperParameters(X, Y, paramLower=0,paramUpper=1,datatransform=NULL,
@@ -45,7 +45,7 @@ nParams=0,it = 100,tol=0.001,k=1)
 
 
   \item{k}{
-	Number of estimatied hyperparameters to approximate the log-likelihood. Note that number of eigenvectors scales quadratically in terms of runtime.
+	Number of estimated hyperparameters to approximate the log-likelihood. Note that number of eigenvectors scales quadratically in terms of runtime.
   }
 
 
@@ -54,8 +54,8 @@ nParams=0,it = 100,tol=0.001,k=1)
  This function is a wrapper for the downhillsimplex algoirthm and can be used to estimate hyperparameters of the GP HIST.
 }
 \value{
-Function will return a matrix of estimated hypervalues.
-First item will be the estimated sigma value. The other paramters will be the on you used in the datatransform function.
+Function will return a matrix of estimated hyperparameters.
+First item will be the estimated sigma value. The other parameters will be the on you used in the datatransform function.
 }
 
 

@@ -6,7 +6,7 @@ Gaussian process with histogram intersection kernel
 }
 \description{
 This package provide an implementation of a Gaussian process regression using a histogram intersection kernel an utilizes approximations for the approximation of the log-likelihood and variance prediction.
-The number of estimated eigenvectors can be selected. This package i build to be light weight and fast execution time.
+The number of estimated eigenvectors can be selected. This package is build to be light weight and fast execution time.
 
 }
 \details{

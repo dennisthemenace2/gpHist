@@ -5,7 +5,7 @@
   gpHistVariance Function
 }
 \description{
-  This function is used to estimate (approximate) the variance of new sample from a trained GP.
+  This function is used to estimate (approximate) the variance of new samples from a trained GP.
 }
 \usage{
 gpHistVariance( GP,X,x_pred)
@@ -23,7 +23,9 @@ gpHistVariance( GP,X,x_pred)
   }
 }
 \details{
-Based on the number of estimaited eigenvalues/eigenvetors, the variance is approximated. When only 1 eigenvalue is used, the so called coarse approximation is used. If more eigenvectors are present, the so called fine approximation is used. For deatils look in to paper of refrenced under references
+Based on the number of estimaited eigenvalues/eigenvetors, the variance is approximated. When only 1 eigenvalue is used, the so-called coarse approximation is used. If more eigenvectors are present, the so- called fine approximation is used. Estimation of eigenvalue and vector for the coarse approximation is done using power iteration. This is considerably faster than approximations of multiple eigenvectors using Lanczos algorithm followed by bounding the eigenvalues using Sturm sequences and inverse iteration for the estimation of the eigenvector.
+
+For deatils look in to paper of refrenced under references
 }
 \value{
  Will return NAN on error or the estimated approximaited variances of the samples
@@ -45,7 +47,7 @@ Rodner, E., Freytag, A., Bodesheim, P., Froehlich, B., & Denzler, J. (2016). Lar
 As workaround consider using less eigenvectors for the estimation of the Gaussian process. Or remove the lowest eigenvalue and vector from the object and call the variance function again. This of course will you provide a worse approximation, but give you a valid variance that you might be able to use instead.
 }
 
-\section{Warning }{ A negative variance cen be retunred. For reasons and workarounds look into note section.}
+\section{Warning }{ A negative variance can be returned. For reasons and workarounds look into the note section.}
 
 
   \seealso{
