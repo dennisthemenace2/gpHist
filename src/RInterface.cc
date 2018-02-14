@@ -14,6 +14,8 @@
 
 #include <pthread.h>
 
+#include <cfenv>
+
 
 void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,unsigned int k,double*alphas,double*betas,double sigma);
 
@@ -564,25 +566,39 @@ void fastMultiply( RMat& X,RMat& Y, RMat& result, RMat& orders, double sigma){
 #endif
 
 
-bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned int max_iterations=1000 ) {
+bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned int max_iterations=2000 ) {
   
   RMat res( x.NumRows(),1 );
   
   fastMultiply(A,x,res,orders,sigma); //A%*%x;
   
+
   RMat r= b-res;// 
   RMat p=r;
   
   double rsold=r.SquareSum();//t(r)%*%r 
+
+
   double rsnew ;
   
   for (unsigned int i=1;i<=max_iterations;++i){
     fastMultiply(A,p,res,orders,sigma);// res =  A%*%p;
-    double alpha= rsold / p.ScalarProd(res) ;
+
+//if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
+//	  	std::cout <<"error after conj!  mulitply:"<< i<<std::endl;
+ // return false;
+
+//}
+
+    double alpha= rsold / p.ScalarProd(res) ; // the scalar product can overflow :(
     
+    if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
+      return false;
+    }
+
     x += alpha*p;
     
-    if(i % 50 == 0){
+    if(i % 25 == 0){
       fastMultiply(A,x,res,orders,sigma);
       r=b-res; //#A%*%x;
     }else{
@@ -592,7 +608,7 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
     
     rsnew= r.SquareSum();//t(r)%*%r;
     if(sqrt(rsnew) <1e-10){
-      //  std::cout<<"conjgradFP converged after "<<i<<std::endl;
+       // std::cout<<"conjgradFP converged after "<<i<<std::endl;
       return true;
     }
     p*=(rsnew/rsold);
@@ -613,6 +629,7 @@ double getEigen( RMat& A,RMat &b,RMat& orders,double sigma){
     b = res;
     b /= norm;
     if(fabs(last-norm)<1e-10 ){
+	//std::cout<<"converged poweriteration:"<< i<<std::endl;
       break;
     }
     last= norm;
@@ -622,17 +639,36 @@ double getEigen( RMat& A,RMat &b,RMat& orders,double sigma){
 
 //inverse iteration to get eigenvector for an eigenvalue
 void inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double sigma){
+
   unsigned int N = A.NumRows();
   result = 1.0/ double(N); // innit vector
   double last = 0.0;
   RMat tmp( N,1);
-  
+
+ std::feclearexcept(FE_OVERFLOW);
+ std::feclearexcept(FE_UNDERFLOW);
+
+
   for(unsigned int i=0;i<2000;++i){
+// std::cout << "Overflow flag before: " << (bool)std::fetestexcept(FE_OVERFLOW) << std::endl;
+ //   std::cout << "Underflow flag before: " << (bool)std::fetestexcept(FE_UNDERFLOW) << std::endl;
+
+
+
     conjgradFP( A, result, tmp , orders,sigma-lambda, 1000 );
     double norm = sqrt(tmp.SquareSum());
     result = tmp;
     result /= norm;
+
+
+
+    if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
+	break;
+    }
+
     if(fabs(last-norm)<1e-10 ){
+
+
       break;
     }
     last= norm;
@@ -849,7 +885,10 @@ void CppHist(double *result,
   RMat  vMatAlphas(result,numRows,1);
   RMat  vMatOrders(orders,numRows,numCols);
   
+
   conjgradFP(vMatX, vMatY ,vMatAlphas,vMatOrders, sigma );
+
+    
   
   double mu1 = numRows*sigma + vMatX.Sum();
   
@@ -875,17 +914,22 @@ void CppHist(double *result,
     RMat lalphas(k_lancz,1);
     RMat lbetas(k_lancz-1,1);
     
+
     Cpplanczos(vMatX, bmat,vMatOrders, k_lancz,lalphas.getValuesPtr(),lbetas.getValuesPtr(), sigma); // get tri diagonal
-    
+  
+  
     RMat lambdaVec(lambda,k,1);
 
+
     getEigenSturm(lalphas.getValuesPtr(), lalphas.NumRows() ,lbetas.getValuesPtr(),k,lambdaVec.getValuesPtr() );
+
     beta = *lambda;
 
     mu2 = lambdaVec.SquareSum();
 
+
     RMat eigenVec(vector,numRows,k);
-    RMat newLambdaVec(numRows,1);
+  //  RMat newLambdaVec(numRows,1);
     for( unsigned int i=0;i< k ;++i ){
       RMat resEigenVec( eigenVec.getColPtr(i+1), numRows,1);
       inverseInteration(vMatX,lambda[i], resEigenVec,vMatOrders, sigma);

@@ -22,9 +22,9 @@ estimateHyperParameters=function(X, Y, paramLower=0,paramUpper=1,datatransform=N
       }
     }else{
       if(is.null(GP)){
-        ret = gpHist(X ,Y,p[1]);
+        ret = gpHist(X ,Y,p[1],k=k);
       }else{
-        ret = gpHist(X ,Y,p[1],orders=GP$orders);
+        ret = gpHist(X ,Y,p[1],orders=GP$orders,k=k);
       #  ret = gpHist(X ,Y,p[1],orders=GP$orders,alphas = GP$alpha);
       }
     }
