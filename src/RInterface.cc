@@ -584,21 +584,12 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
   for (unsigned int i=1;i<=max_iterations;++i){
     fastMultiply(A,p,res,orders,sigma);// res =  A%*%p;
 
-//if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
-//	  	std::cout <<"error after conj!  mulitply:"<< i<<std::endl;
- // return false;
-
-//}
 
     double alpha= rsold / p.ScalarProd(res) ; // the scalar product can overflow :(
     
-    if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
-      return false;
-    }
-
     x += alpha*p;
     
-    if(i % 25 == 0){
+    if(i % 50 == 0){
       fastMultiply(A,x,res,orders,sigma);
       r=b-res; //#A%*%x;
     }else{
@@ -607,6 +598,7 @@ bool conjgradFP( RMat& A, RMat& b,RMat& x ,RMat& orders,double sigma, unsigned i
     
     
     rsnew= r.SquareSum();//t(r)%*%r;
+
     if(sqrt(rsnew) <1e-10){
        // std::cout<<"conjgradFP converged after "<<i<<std::endl;
       return true;
@@ -642,36 +634,29 @@ void inverseInteration( RMat& A,double lambda,RMat &result,RMat& orders,double s
 
   unsigned int N = A.NumRows();
   result = 1.0/ double(N); // innit vector
-  double last = 0.0;
   RMat tmp( N,1);
 
- std::feclearexcept(FE_OVERFLOW);
- std::feclearexcept(FE_UNDERFLOW);
-
+//see
+//http://www.netlib.org/utk/people/JackDongarra/etemplates/node96.html
 
   for(unsigned int i=0;i<2000;++i){
-// std::cout << "Overflow flag before: " << (bool)std::fetestexcept(FE_OVERFLOW) << std::endl;
- //   std::cout << "Underflow flag before: " << (bool)std::fetestexcept(FE_UNDERFLOW) << std::endl;
-
-
 
     conjgradFP( A, result, tmp , orders,sigma-lambda, 1000 );
+   
+    double th = result.ScalarProd(tmp);
+    double len = sqrt (  (tmp - (result*th) ).SquareSum() );
+
+    if(len< 1e-10*fabs(th)){
+   //   std::cout << "converged "<<len<< " 1e-10*fabs(th)"<< 1e-10*fabs(th)<<std::endl<<std::flush; 
+      result = tmp;
+      result /= th;
+      break;
+    }
+
     double norm = sqrt(tmp.SquareSum());
     result = tmp;
     result /= norm;
 
-
-
-    if((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
-	break;
-    }
-
-    if(fabs(last-norm)<1e-10 ){
-
-
-      break;
-    }
-    last= norm;
   }
   
 }

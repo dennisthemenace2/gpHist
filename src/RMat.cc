@@ -96,6 +96,15 @@ RMat& RMat::operator-= (const RMat &vRhs){
 //- Subtraction operator
 //
 
+RMat RMat::operator- (const double vRhs){
+  
+  RMat vProduct(mNumRows,mNumCols);
+  for (unsigned int i=0; i<mNumRows*mNumCols; i++){
+    vProduct.mValues[i] = mValues[i] - vRhs;
+  }
+  return vProduct;
+}
+
 RMat RMat::operator- (const RMat &vRhs){
   assert(mNumCols==vRhs.mNumCols);
   assert(mNumRows==vRhs.mNumRows);

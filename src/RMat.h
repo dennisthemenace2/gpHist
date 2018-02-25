@@ -19,6 +19,7 @@ public:
     RMat operator* (const double vRhs);      // Multiplication
     RMat operator/ (const double vRhs);      // Div
     RMat operator- (const RMat &vRhs);      // Subtraction
+    RMat operator- (const double);      // Subtraction
     RMat& operator-= (const RMat &vRhs);      // Subtraction
     
     RMat operator+ (const RMat &vRhs);      // Add#
