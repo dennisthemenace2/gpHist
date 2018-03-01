@@ -4,6 +4,9 @@
 This package provides a Gaussian Process with histogram intersection kernel and variance approximations.
 The package is design to provide a high speed for estimation of the Gaussian Process. Therefore, it only encompasses a very limited number of functions and is supposed to be light weight.
 
+This source code is part of the publication:
+Becker, D. (2017). Analysis of the Histogram Intersection Kernel for Use in Bayesian Optimization, 7(6), 337–345. doi:10.7763/IJMO.2017.V7.609
+
 ## Installation
 
 ```{r, eval = FALSE}

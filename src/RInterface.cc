@@ -14,7 +14,6 @@
 
 #include <pthread.h>
 
-#include <cfenv>
 
 
 void Cpplanczos(RMat& Xmat, RMat& bmat,RMat& vMatOrders,unsigned int k,double*alphas,double*betas,double sigma);

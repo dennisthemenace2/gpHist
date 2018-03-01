@@ -7,7 +7,7 @@ dplyr <img src="man/figures/logo.png" align="right" />
 Overview
 --------
 
-This package provides Gaussien Process with histogram intersection kernel and variance approximations The package is design to provide the highest speed. It only encomprises a very limites number of functions and is supposed to be light weight.
+This package provides Gaussian Process with histogram intersection kernel and variance approximations The package is design to provide the highest speed. It only contains a very limited number of functions and is supposed to be light weight.
 
 Installation
 ------------
