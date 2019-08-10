@@ -53,5 +53,5 @@ legend('bottomleft',legend=c('Data', 'Approximation','Coarse std. dev'), col=c('
 
 ```
 
-![Result](https://github.com/dennisthemenace2/gpHist/tree/master/vignettes/gpPlot.png)
+![picture](https://github.com/dennisthemenace2/gpHist/tree/master/vignettes/gpPlot.png)
 
