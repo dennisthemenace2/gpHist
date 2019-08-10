@@ -48,8 +48,10 @@ lines(x_pred, prediction,col='red')
 lines(x_pred, prediction+sqrt(vars),lty=2,col='red')
 lines(x_pred, prediction-sqrt(vars),lty=2,col='red')
 
-legend('topleft',legend=c('Data', 'Approximation','Coarse std. dev'), col=c('black','red','red') ,lty=c(NA,1,2),pch=c(1,NA,NA))
+legend('bottomleft',legend=c('Data', 'Approximation','Coarse std. dev'), col=c('black','red','red') ,lty=c(NA,1,2),pch=c(1,NA,NA))
 
 
 ```
+
+![Result](https://github.com/dennisthemenace2/gpHist/tree/master/vignettes/gpPlot.png)
 
